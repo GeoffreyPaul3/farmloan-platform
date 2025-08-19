@@ -32,8 +32,8 @@ export function Header() {
                   <img 
                    src={logo}
                    alt="Logo"
-                   width={100}
-                   height={100}
+                   width={70}
+                   height={70}
                     />
                 </Link>
           <div>
