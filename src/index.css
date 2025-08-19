@@ -2,76 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Enterprise Farm Management Platform Design System */
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
 
 @layer base {
   :root {
-    /* Core Background & Text */
-    --background: 0 0% 99%;
-    --foreground: 160 15% 15%;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
 
-    /* Card & Surface Colors */
     --card: 0 0% 100%;
-    --card-foreground: 160 15% 15%;
+    --card-foreground: 222.2 84% 4.9%;
 
-    /* Popover Colors */
     --popover: 0 0% 100%;
-    --popover-foreground: 160 15% 15%;
+    --popover-foreground: 222.2 84% 4.9%;
 
-    /* Primary Colors - Rich Agricultural Green */
-    --primary: 142 76% 28%;
-    --primary-foreground: 0 0% 98%;
-    --primary-hover: 142 76% 24%;
-    --primary-glow: 142 76% 36%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
 
-    /* Secondary Colors - Warm Earth Tones */
-    --secondary: 32 25% 92%;
-    --secondary-foreground: 160 15% 15%;
-    --secondary-hover: 32 25% 88%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
 
-    /* Muted Colors */
-    --muted: 160 8% 96%;
-    --muted-foreground: 160 8% 45%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-    /* Accent Colors - Golden Harvest */
-    --accent: 45 93% 47%;
-    --accent-foreground: 160 15% 15%;
-    --accent-hover: 45 93% 42%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
 
-    /* Success & Growth Colors */
-    --success: 120 60% 40%;
-    --success-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
-    /* Warning Colors */
-    --warning: 38 92% 50%;
-    --warning-foreground: 160 15% 15%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
 
-    /* Destructive Colors */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-
-    /* Border & Input Colors */
-    --border: 160 8% 90%;
-    --input: 160 8% 94%;
-    --ring: 142 76% 28%;
-
-    /* Enterprise Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
-    --gradient-success: linear-gradient(135deg, hsl(var(--success)), hsl(120 60% 50%));
-    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(45 93% 55%));
-    --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--success)) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(160 8% 98%) 100%);
-
-    /* Enterprise Shadows */
-    --shadow-enterprise: 0 10px 25px -5px hsl(var(--primary) / 0.1), 0 4px 6px -2px hsl(var(--primary) / 0.05);
-    --shadow-card: 0 4px 6px -1px hsl(160 8% 85% / 0.1), 0 2px 4px -1px hsl(160 8% 85% / 0.06);
-    --shadow-hover: 0 20px 25px -5px hsl(var(--primary) / 0.15), 0 10px 10px -5px hsl(var(--primary) / 0.1);
-
-    /* Animation Curves */
-    --ease-enterprise: cubic-bezier(0.4, 0, 0.2, 1);
-    --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -91,64 +56,41 @@
   }
 
   .dark {
-    /* Core Background & Text - Dark Mode */
-    --background: 160 15% 8%;
-    --foreground: 160 8% 95%;
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
 
-    /* Card & Surface Colors - Dark Mode */
-    --card: 160 15% 10%;
-    --card-foreground: 160 8% 95%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
 
-    /* Popover Colors - Dark Mode */
-    --popover: 160 15% 10%;
-    --popover-foreground: 160 8% 95%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
 
-    /* Primary Colors - Brighter in Dark Mode */
-    --primary: 142 76% 45%;
-    --primary-foreground: 160 15% 8%;
-    --primary-hover: 142 76% 40%;
-    --primary-glow: 142 76% 52%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
 
-    /* Secondary Colors - Dark Earth Tones */
-    --secondary: 160 12% 15%;
-    --secondary-foreground: 160 8% 95%;
-    --secondary-hover: 160 12% 18%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
 
-    /* Muted Colors - Dark Mode */
-    --muted: 160 12% 15%;
-    --muted-foreground: 160 8% 65%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
 
-    /* Accent Colors - Warmer Gold in Dark Mode */
-    --accent: 45 93% 55%;
-    --accent-foreground: 160 15% 8%;
-    --accent-hover: 45 93% 50%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
 
-    /* Success & Growth Colors - Dark Mode */
-    --success: 120 60% 50%;
-    --success-foreground: 160 15% 8%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
 
-    /* Warning Colors - Dark Mode */
-    --warning: 38 92% 60%;
-    --warning-foreground: 160 15% 8%;
-
-    /* Destructive Colors - Dark Mode */
-    --destructive: 0 84% 65%;
-    --destructive-foreground: 160 15% 8%;
-
-    /* Border & Input Colors - Dark Mode */
-    --border: 160 12% 20%;
-    --input: 160 12% 18%;
-    --ring: 142 76% 45%;
-
-    /* Update Sidebar for Dark Mode */
-    --sidebar-background: 160 15% 8%;
-    --sidebar-foreground: 160 8% 95%;
-    --sidebar-primary: 142 76% 45%;
-    --sidebar-primary-foreground: 160 15% 8%;
-    --sidebar-accent: 160 12% 15%;
-    --sidebar-accent-foreground: 160 8% 95%;
-    --sidebar-border: 160 12% 20%;
-    --sidebar-ring: 142 76% 45%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
@@ -159,78 +101,5 @@
 
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
-}
-
-@layer components {
-  /* Enterprise Button Variants */
-  .btn-enterprise {
-    @apply bg-gradient-to-r from-primary to-primary-glow text-primary-foreground shadow-enterprise hover:shadow-hover transition-all duration-300;
-  }
-  
-  .btn-success {
-    @apply bg-gradient-to-r from-success to-emerald-500 text-success-foreground shadow-lg hover:shadow-xl transition-all duration-300;
-  }
-  
-  .btn-accent {
-    @apply bg-gradient-to-r from-accent to-amber-500 text-accent-foreground shadow-lg hover:shadow-xl transition-all duration-300;
-  }
-
-  /* Enterprise Card Styles */
-  .card-enterprise {
-    @apply bg-gradient-to-br from-card to-muted border border-border shadow-card hover:shadow-enterprise transition-all duration-300;
-  }
-  
-  .card-dashboard {
-    @apply bg-card border border-border shadow-card hover:shadow-hover transition-all duration-500 backdrop-blur-sm;
-  }
-
-  /* Data Table Styles */
-  .table-enterprise {
-    @apply bg-card border border-border rounded-lg shadow-card overflow-hidden;
-  }
-  
-  .table-row-hover {
-    @apply hover:bg-muted/50 transition-colors duration-200;
-  }
-
-  /* Form Styles */
-  .input-enterprise {
-    @apply border-border bg-input focus:border-primary focus:ring-primary/20 transition-all duration-200;
-  }
-
-  /* Navigation Styles */
-  .nav-active {
-    @apply bg-primary text-primary-foreground shadow-md;
-  }
-  
-  .nav-hover {
-    @apply hover:bg-secondary hover:text-secondary-foreground transition-all duration-200;
-  }
-
-  /* Animation Classes */
-  .animate-slide-up {
-    animation: slide-up 0.3s var(--ease-enterprise);
-  }
-  
-  .animate-fade-in {
-    animation: fade-in 0.5s var(--ease-enterprise);
-  }
-  
-  .animate-scale-in {
-    animation: scale-in 0.3s var(--ease-bounce);
-  }
-  
-  .hover-lift {
-    @apply transition-transform duration-300 hover:-translate-y-1 hover:shadow-hover;
-  }
-
-  /* Background Patterns */
-  .bg-grid-pattern {
-    background-image: 
-      linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
-      linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
-    background-size: 20px 20px;
   }
 }
