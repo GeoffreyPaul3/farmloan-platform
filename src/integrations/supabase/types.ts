@@ -14,16 +14,438 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string
+          table_name: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id: string
+          table_name: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      equipment: {
+        Row: {
+          brand: string | null
+          category: string
+          condition: string
+          created_at: string
+          created_by: string
+          current_value: number | null
+          id: string
+          location: string | null
+          model: string | null
+          name: string
+          notes: string | null
+          purchase_date: string | null
+          purchase_price: number | null
+          serial_number: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          category: string
+          condition?: string
+          created_at?: string
+          created_by: string
+          current_value?: number | null
+          id?: string
+          location?: string | null
+          model?: string | null
+          name: string
+          notes?: string | null
+          purchase_date?: string | null
+          purchase_price?: number | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          category?: string
+          condition?: string
+          created_at?: string
+          created_by?: string
+          current_value?: number | null
+          id?: string
+          location?: string | null
+          model?: string | null
+          name?: string
+          notes?: string | null
+          purchase_date?: string | null
+          purchase_price?: number | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      equipment_issuance: {
+        Row: {
+          actual_return_date: string | null
+          condition_at_issue: string
+          condition_at_return: string | null
+          created_at: string
+          equipment_id: string
+          expected_return_date: string
+          farmer_group_id: string
+          id: string
+          issue_date: string
+          issued_by: string
+          notes: string | null
+          returned_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_return_date?: string | null
+          condition_at_issue: string
+          condition_at_return?: string | null
+          created_at?: string
+          equipment_id: string
+          expected_return_date: string
+          farmer_group_id: string
+          id?: string
+          issue_date?: string
+          issued_by: string
+          notes?: string | null
+          returned_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_return_date?: string | null
+          condition_at_issue?: string
+          condition_at_return?: string | null
+          created_at?: string
+          equipment_id?: string
+          expected_return_date?: string
+          farmer_group_id?: string
+          id?: string
+          issue_date?: string
+          issued_by?: string
+          notes?: string | null
+          returned_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_issuance_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_issuance_farmer_group_id_fkey"
+            columns: ["farmer_group_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      farmer_groups: {
+        Row: {
+          contact_email: string | null
+          contact_person: string
+          contact_phone: string
+          created_at: string
+          created_by: string
+          credit_score: number | null
+          id: string
+          location: string
+          name: string
+          notes: string | null
+          registration_date: string
+          status: string
+          total_members: number
+          updated_at: string
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_person: string
+          contact_phone: string
+          created_at?: string
+          created_by: string
+          credit_score?: number | null
+          id?: string
+          location: string
+          name: string
+          notes?: string | null
+          registration_date?: string
+          status?: string
+          total_members?: number
+          updated_at?: string
+        }
+        Update: {
+          contact_email?: string | null
+          contact_person?: string
+          contact_phone?: string
+          created_at?: string
+          created_by?: string
+          credit_score?: number | null
+          id?: string
+          location?: string
+          name?: string
+          notes?: string | null
+          registration_date?: string
+          status?: string
+          total_members?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      farmers: {
+        Row: {
+          created_at: string
+          created_by: string
+          crops_grown: string[] | null
+          date_of_birth: string | null
+          farm_size_acres: number | null
+          farmer_group_id: string
+          full_name: string
+          gender: string | null
+          id: string
+          join_date: string
+          national_id: string | null
+          phone: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          crops_grown?: string[] | null
+          date_of_birth?: string | null
+          farm_size_acres?: number | null
+          farmer_group_id: string
+          full_name: string
+          gender?: string | null
+          id?: string
+          join_date?: string
+          national_id?: string | null
+          phone: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          crops_grown?: string[] | null
+          date_of_birth?: string | null
+          farm_size_acres?: number | null
+          farmer_group_id?: string
+          full_name?: string
+          gender?: string | null
+          id?: string
+          join_date?: string
+          national_id?: string | null
+          phone?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farmers_farmer_group_id_fkey"
+            columns: ["farmer_group_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loans: {
+        Row: {
+          amount: number
+          approved_by: string | null
+          collateral_description: string | null
+          created_at: string
+          created_by: string
+          disbursement_date: string | null
+          due_date: string | null
+          duration_months: number
+          farmer_group_id: string
+          id: string
+          interest_rate: number
+          loan_type: string
+          outstanding_balance: number
+          purpose: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          approved_by?: string | null
+          collateral_description?: string | null
+          created_at?: string
+          created_by: string
+          disbursement_date?: string | null
+          due_date?: string | null
+          duration_months: number
+          farmer_group_id: string
+          id?: string
+          interest_rate?: number
+          loan_type: string
+          outstanding_balance?: number
+          purpose: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_by?: string | null
+          collateral_description?: string | null
+          created_at?: string
+          created_by?: string
+          disbursement_date?: string | null
+          due_date?: string | null
+          duration_months?: number
+          farmer_group_id?: string
+          id?: string
+          interest_rate?: number
+          loan_type?: string
+          outstanding_balance?: number
+          purpose?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loans_farmer_group_id_fkey"
+            columns: ["farmer_group_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          phone: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      repayments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          loan_id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string
+          receipt_number: string | null
+          recorded_by: string
+          reference_number: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          loan_id: string
+          notes?: string | null
+          payment_date?: string
+          payment_method: string
+          receipt_number?: string | null
+          recorded_by: string
+          reference_number?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          loan_id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+          receipt_number?: string | null
+          recorded_by?: string
+          reference_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repayments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
     }
     Enums: {
-      [_ in never]: never
+      user_role: "admin" | "staff"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +572,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_role: ["admin", "staff"],
+    },
   },
 } as const
