@@ -225,4 +225,12 @@
   .hover-lift {
     @apply transition-transform duration-300 hover:-translate-y-1 hover:shadow-hover;
   }
+
+  /* Background Patterns */
+  .bg-grid-pattern {
+    background-image: 
+      linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
 }
