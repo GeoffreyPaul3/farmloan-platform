@@ -1,8 +1,9 @@
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Home, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import logo from "@/assets/farm-logo.png"
 
 const NotFound = () => {
   const location = useLocation();
@@ -32,7 +33,14 @@ const NotFound = () => {
           className="flex justify-center mb-8"
         >
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-primary shadow-enterprise">
-            <span className="text-2xl font-bold text-primary-foreground">FM</span>
+            <Link to="/" >
+              <img 
+               src={logo}
+               alt="Logo"
+               width={100}
+               height={100}
+              />
+            </Link>
           </div>
         </motion.div>
 

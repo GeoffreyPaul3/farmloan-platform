@@ -12,6 +12,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/components/ui/theme-provider";
+import { Link } from "react-router-dom";
+import logo from "@/assets/farm-logo.png"
 
 export function Header() {
   const { user, signOut } = useAuth();
@@ -26,9 +28,14 @@ export function Header() {
       <div className="container flex h-16 items-center justify-between px-6">
         {/* Logo and Title */}
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-primary">
-            <span className="text-lg font-bold text-primary-foreground">FM</span>
-          </div>
+           <Link to="/" >
+                  <img 
+                   src={logo}
+                   alt="Logo"
+                   width={100}
+                   height={100}
+                    />
+                </Link>
           <div>
             <h1 className="text-xl font-bold text-foreground">Farm Manager</h1>
             <p className="text-xs text-muted-foreground">Loan & Equipment Platform</p>

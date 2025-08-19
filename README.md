@@ -1,73 +1,74 @@
-# Welcome to your Lovable project
+# FarmLoan Platform
 
-## Project info
+A modern web application designed to facilitate agricultural loans and financial services for farmers. Built with cutting-edge technologies to provide a seamless user experience.
 
-**URL**: https://lovable.dev/projects/f8ad2406-ac12-417c-ba5e-7045eb7407fd
+## 🚀 Features
 
-## How can I edit this code?
+- User Authentication & Authorization
+- Dashboard Interface
+- Mobile Responsive Design
+- Real-time Data Updates
+- Secure Database Integration
 
-There are several ways of editing your application.
+## 🛠️ Technologies
 
-**Use Lovable**
+This project is built with modern web technologies:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/f8ad2406-ac12-417c-ba5e-7045eb7407fd) and start prompting.
+- [React](https://reactjs.org/) - Frontend library
+- [TypeScript](https://www.typescriptlang.org/) - Type-safe JavaScript
+- [Vite](https://vitejs.dev/) - Next Generation Frontend Tooling
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- [shadcn/ui](https://ui.shadcn.com/) - Beautiful and accessible UI components
+- [Supabase](https://supabase.com/) - Open source Firebase alternative
 
-Changes made via Lovable will be committed automatically to this repo.
+## 📦 Installation
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+1. Clone the repository:
+```bash
+git clone https://github.com/GeoffreyPaul3/farmloan-platform.git
+cd farmloan-platform
 ```
 
-**Edit a file directly in GitHub**
+2. Install dependencies:
+```bash
+npm install
+# or
+bun install
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+3. Start the development server:
+```bash
+npm run dev
+# or
+bun dev
+```
 
-**Use GitHub Codespaces**
+## 🔧 Environment Setup
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Create a `.env` file in the root directory with your Supabase credentials:
 
-## What technologies are used for this project?
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-This project is built with:
+## 🏗️ Project Structure
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```
+src/
+├── assets/       # Static assets
+├── components/   # Reusable UI components
+├── hooks/        # Custom React hooks
+├── integrations/ # Third-party integrations
+├── layouts/      # Layout components
+├── lib/          # Utility functions
+└── pages/        # Application pages
+```
 
-## How can I deploy this project?
+## 🚀 Deployment
 
-Simply open [Lovable](https://lovable.dev/projects/f8ad2406-ac12-417c-ba5e-7045eb7407fd) and click on Share -> Publish.
+This project is configured for deployment on Vercel. Simply push to your repository and Vercel will automatically deploy your changes.
 
-## Can I connect a custom domain to my Lovable project?
+## 📝 License
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project is licensed under the MIT License - see the LICENSE file for details.

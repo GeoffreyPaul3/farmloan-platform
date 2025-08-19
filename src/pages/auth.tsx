@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -10,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import logo from "@/assets/farm-logo.png"
 
 export default function AuthPage() {
   const { user, signIn, signUp } = useAuth();
@@ -116,7 +118,14 @@ export default function AuthPage() {
         >
           <div className="flex justify-center mb-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-primary shadow-enterprise">
-              <span className="text-xl font-bold text-primary-foreground">FM</span>
+              
+                    <img 
+                      src={logo}
+                      alt="Logo"
+                      width={100}
+                      height={100}
+                      />
+             
             </div>
           </div>
           <h1 className="text-3xl font-bold text-foreground">Farm Manager</h1>

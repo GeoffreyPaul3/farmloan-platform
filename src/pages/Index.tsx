@@ -3,7 +3,8 @@ import { ArrowRight, Users, CreditCard, Wrench, TrendingUp } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import logo from "@/assets/farm-logo.png"
 
 const features = [
   {
@@ -56,7 +57,14 @@ const Index = () => {
               className="flex justify-center mb-8"
             >
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-primary shadow-enterprise">
-                <span className="text-2xl font-bold text-primary-foreground">FM</span>
+                 <Link to="/" >
+                    <img 
+                      src={logo}
+                      alt="Logo"
+                      width={100}
+                      height={100}
+                      />
+                  </Link>
               </div>
             </motion.div>
 
@@ -173,7 +181,14 @@ const Index = () => {
           >
             <div className="flex items-center gap-3 mb-4 md:mb-0">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-primary">
-                <span className="text-lg font-bold text-primary-foreground">FM</span>
+                <Link to="/" >
+                    <img 
+                      src={logo}
+                      alt="Logo"
+                      width={100}
+                      height={100}
+                      />
+                  </Link>
               </div>
               <div>
                 <h3 className="font-bold text-foreground">Farm Manager</h3>
@@ -181,7 +196,7 @@ const Index = () => {
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2024 Farm Manager. Built for agricultural excellence.
+              &copy; {new Date().getFullYear()} Farm Manager. Built for agricultural excellence.
             </p>
           </motion.div>
         </div>
