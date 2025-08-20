@@ -1,83 +1,161 @@
 
 import { DashboardLayout } from "@/layouts/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Users, DollarSign, TrendingUp, AlertTriangle, Package, ShoppingCart } from "lucide-react";
+import { Users, Wheat, DollarSign, TrendingUp, Plus, UserPlus, Package, MapPin } from "lucide-react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [showQuickActions, setShowQuickActions] = useState(false);
 
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
-      const [clubsRes, farmersRes, loansRes, deliveriesRes, inputsRes] = await Promise.all([
-        supabase.from("farmer_groups").select("*"),
-        supabase.from("farmers").select("*"),
-        supabase.from("loans").select("*"),
-        supabase.from("deliveries").select("*"),
-        supabase.from("input_distributions").select("*")
+      const [
+        clubsResult,
+        farmersResult,
+        loansResult,
+        deliveriesResult,
+        auditResult
+      ] = await Promise.all([
+        supabase.from("farmer_groups").select("id").eq("status", "active"),
+        supabase.from("farmers").select("id").eq("status", "active"),
+        supabase.from("loans").select("outstanding_balance").eq("status", "active"),
+        supabase.from("deliveries").select("weight, gross_amount"),
+        supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(10)
       ]);
 
+      const totalLoans = loansResult.data?.reduce((sum, loan) => sum + loan.outstanding_balance, 0) || 0;
+      const totalWeight = deliveriesResult.data?.reduce((sum, delivery) => sum + delivery.weight, 0) || 0;
+
       return {
-        clubs: clubsRes.data || [],
-        farmers: farmersRes.data || [],
-        loans: loansRes.data || [],
-        deliveries: deliveriesRes.data || [],
-        inputs: inputsRes.data || []
+        activeClubs: clubsResult.data?.length || 0,
+        registeredFarmers: farmersResult.data?.length || 0,
+        outstandingLoans: totalLoans,
+        cottonDelivered: totalWeight,
+        recentActivity: auditResult.data || []
       };
     },
   });
 
-  const { data: recentActivity } = useQuery({
-    queryKey: ["recent-activity"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("audit_logs")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(10);
-      
-      if (error) throw error;
-      return data;
-    },
-  });
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'club':
+        navigate('/clubs');
+        break;
+      case 'farmer':
+        navigate('/clubs'); // Navigate to clubs where farmers are managed
+        break;
+      case 'delivery':
+        navigate('/deliveries');
+        break;
+      case 'visit':
+        navigate('/field-visits');
+        break;
+      default:
+        break;
+    }
+    setShowQuickActions(false);
+  };
 
-  const totalOutstanding = stats?.loans.reduce((sum, loan) => sum + (loan.outstanding_balance || 0), 0) || 0;
-  const totalDeliveries = stats?.deliveries.reduce((sum, d) => sum + (d.weight || 0), 0) || 0;
-  const totalValue = stats?.deliveries.reduce((sum, d) => sum + (d.gross_amount || 0), 0) || 0;
-
-  // Sample chart data
-  const chartData = [
-    { name: 'Clubs', value: stats?.clubs.length || 0 },
-    { name: 'Farmers', value: stats?.farmers.length || 0 },
-    { name: 'Loans', value: stats?.loans.length || 0 },
-    { name: 'Deliveries', value: stats?.deliveries.length || 0 },
-  ];
+  if (statsLoading) {
+    return (
+      <DashboardLayout>
+        <div className="p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 w-48 bg-muted rounded"></div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-32 bg-muted rounded"></div>
+              ))}
+            </div>
+            <div className="h-64 bg-muted rounded"></div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Cotton Club Management Dashboard</h1>
-          <p className="text-muted-foreground">
-            Overview of clubs, farmers, loans, and cotton deliveries
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Cotton Club Management Platform Overview
+            </p>
+          </div>
+          <Dialog open={showQuickActions} onOpenChange={setShowQuickActions}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Quick Actions
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Quick Actions</DialogTitle>
+                <DialogDescription>
+                  Jump to common tasks
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-4">
+                <Button
+                  variant="outline"
+                  className="h-20 flex-col"
+                  onClick={() => handleQuickAction('club')}
+                >
+                  <Users className="h-6 w-6 mb-2" />
+                  Register Club
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-20 flex-col"
+                  onClick={() => handleQuickAction('farmer')}
+                >
+                  <UserPlus className="h-6 w-6 mb-2" />
+                  Add Farmer
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-20 flex-col"
+                  onClick={() => handleQuickAction('delivery')}
+                >
+                  <Package className="h-6 w-6 mb-2" />
+                  Record Delivery
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-20 flex-col"
+                  onClick={() => handleQuickAction('visit')}
+                >
+                  <MapPin className="h-6 w-6 mb-2" />
+                  Field Visit
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Clubs</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.clubs.filter(c => c.status === 'active').length || 0}</div>
+              <div className="text-2xl font-bold">{stats?.activeClubs}</div>
               <p className="text-xs text-muted-foreground">
-                Total: {stats?.clubs.length || 0} clubs
+                Registered farmer groups
               </p>
             </CardContent>
           </Card>
@@ -85,12 +163,12 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Registered Farmers</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <Wheat className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.farmers.length || 0}</div>
+              <div className="text-2xl font-bold">{stats?.registeredFarmers}</div>
               <p className="text-xs text-muted-foreground">
-                Active: {stats?.farmers.filter(f => f.status === 'active').length || 0}
+                Active cotton farmers
               </p>
             </CardContent>
           </Card>
@@ -101,9 +179,9 @@ export default function Dashboard() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalOutstanding.toFixed(0)}</div>
+              <div className="text-2xl font-bold">${stats?.outstandingLoans.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">
-                {stats?.loans.filter(l => l.outstanding_balance > 0).length || 0} active loans
+                Total loan balance
               </p>
             </CardContent>
           </Card>
@@ -114,114 +192,58 @@ export default function Dashboard() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalDeliveries.toFixed(0)} kg</div>
+              <div className="text-2xl font-bold">{stats?.cottonDelivered.toFixed(1)} kg</div>
               <p className="text-xs text-muted-foreground">
-                Value: ${totalValue.toFixed(0)}
+                Total cotton received
               </p>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>System Overview</CardTitle>
-              <CardDescription>Key metrics across the platform</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Common tasks and shortcuts</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent cursor-pointer">
-                <Users className="h-5 w-5 text-blue-500" />
-                <div>
-                  <p className="font-medium">Register New Club</p>
-                  <p className="text-xs text-muted-foreground">Add farmer group</p>
-                </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>Latest system changes and user actions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {stats?.recentActivity?.length ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Table</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead>User</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stats.recentActivity.map((activity) => (
+                    <TableRow key={activity.id}>
+                      <TableCell>{format(new Date(activity.created_at), "MMM dd, HH:mm")}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{activity.table_name}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          activity.action === 'INSERT' ? 'default' :
+                          activity.action === 'UPDATE' ? 'secondary' : 'destructive'
+                        }>
+                          {activity.action}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{activity.user_id}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <TrendingUp className="h-12 w-12 mx-auto mb-4" />
+                <p>No recent activity</p>
               </div>
-              <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent cursor-pointer">
-                <Package className="h-5 w-5 text-green-500" />
-                <div>
-                  <p className="font-medium">Record Input Distribution</p>
-                  <p className="text-xs text-muted-foreground">Track supplies</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent cursor-pointer">
-                <ShoppingCart className="h-5 w-5 text-orange-500" />
-                <div>
-                  <p className="font-medium">Process Delivery</p>
-                  <p className="text-xs text-muted-foreground">Cotton buying</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>System Alerts</CardTitle>
-              <CardDescription>Important notifications and warnings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3 p-3 border border-orange-200 bg-orange-50 rounded-lg">
-                <AlertTriangle className="h-5 w-5 text-orange-500" />
-                <div>
-                  <p className="font-medium text-sm">Low Stock Alert</p>
-                  <p className="text-xs text-muted-foreground">Several input items are running low</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 border border-blue-200 bg-blue-50 rounded-lg">
-                <Users className="h-5 w-5 text-blue-500" />
-                <div>
-                  <p className="font-medium text-sm">Pending Farmer Registrations</p>
-                  <p className="text-xs text-muted-foreground">5 farmers awaiting approval</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest system events</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {recentActivity?.slice(0, 5).map((activity) => (
-                <div key={activity.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className="text-xs">
-                      {activity.action}
-                    </Badge>
-                    <span className="text-sm">{activity.table_name}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(activity.created_at).toLocaleTimeString()}
-                  </span>
-                </div>
-              )) || (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No recent activity
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );

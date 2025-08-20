@@ -2,26 +2,28 @@
 import { DashboardLayout } from "@/layouts/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Users, FileText, MapPin, Phone } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Users, FileText, Upload } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { format } from "date-fns";
 import { toast } from "sonner";
 
 export default function Clubs() {
-  const { user } = useAuth();
-  const [selectedClub, setSelectedClub] = useState<any>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showMemberDialog, setShowMemberDialog] = useState(false);
+  const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
 
   const { data: clubs, isLoading, refetch } = useQuery({
-    queryKey: ["clubs"],
+    queryKey: ["farmer-groups"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("farmer_groups")
@@ -33,22 +35,91 @@ export default function Clubs() {
     },
   });
 
-  const { data: farmers } = useQuery({
-    queryKey: ["farmers", selectedClub?.id],
+  const { data: farmers, refetch: refetchFarmers } = useQuery({
+    queryKey: ["farmers"],
     queryFn: async () => {
-      if (!selectedClub?.id) return [];
-      
       const { data, error } = await supabase
         .from("farmers")
-        .select("*")
-        .eq("farmer_group_id", selectedClub.id)
+        .select(`
+          *,
+          farmer_groups(name)
+        `)
         .order("created_at", { ascending: false });
       
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedClub?.id,
   });
+
+  const handleCreateClub = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const clubData = {
+        name: formData.get("name") as string,
+        club_type: formData.get("club_type") as string,
+        location: formData.get("location") as string,
+        contact_person: formData.get("contact_person") as string,
+        contact_phone: formData.get("contact_phone") as string,
+        contact_email: formData.get("contact_email") as string || null,
+        chairperson_name: formData.get("chairperson_name") as string || null,
+        chairperson_phone: formData.get("chairperson_phone") as string || null,
+        village_headman: formData.get("village_headman") as string || null,
+        group_village_headman: formData.get("group_village_headman") as string || null,
+        traditional_authority: formData.get("traditional_authority") as string || null,
+        epa: formData.get("epa") as string || null,
+        notes: formData.get("notes") as string || null,
+        created_by: (await supabase.auth.getUser()).data.user?.id
+      };
+
+      const { error } = await supabase
+        .from("farmer_groups")
+        .insert([clubData]);
+
+      if (error) throw error;
+
+      toast.success("Club created successfully!");
+      setShowCreateDialog(false);
+      refetch();
+    } catch (error) {
+      console.error("Error creating club:", error);
+      toast.error("Failed to create club");
+    }
+  };
+
+  const handleAddMember = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const memberData = {
+        full_name: formData.get("full_name") as string,
+        national_id: formData.get("national_id") as string || null,
+        phone: formData.get("phone") as string,
+        gender: formData.get("gender") as string || null,
+        date_of_birth: formData.get("date_of_birth") as string || null,
+        farm_size_acres: parseFloat(formData.get("farm_size_acres") as string) || null,
+        farmer_group_id: selectedClubId,
+        created_by: (await supabase.auth.getUser()).data.user?.id
+      };
+
+      const { error } = await supabase
+        .from("farmers")
+        .insert([memberData]);
+
+      if (error) throw error;
+
+      toast.success("Member added successfully!");
+      setShowMemberDialog(false);
+      setSelectedClubId(null);
+      refetchFarmers();
+      refetch();
+    } catch (error) {
+      console.error("Error adding member:", error);
+      toast.error("Failed to add member");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -56,16 +127,16 @@ export default function Clubs() {
         <div className="p-6">
           <div className="animate-pulse space-y-4">
             <div className="h-8 w-48 bg-muted rounded"></div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-32 bg-muted rounded"></div>
-              ))}
-            </div>
+            <div className="h-64 bg-muted rounded"></div>
           </div>
         </div>
       </DashboardLayout>
     );
   }
+
+  const totalClubs = clubs?.length || 0;
+  const activeClubs = clubs?.filter(c => c.status === 'active').length || 0;
+  const totalMembers = clubs?.reduce((sum, club) => sum + club.total_members, 0) || 0;
 
   return (
     <DashboardLayout>
@@ -73,37 +144,113 @@ export default function Clubs() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Cotton Clubs</h1>
-            <p className="text-muted-foreground">Manage farmer groups and club registrations</p>
+            <p className="text-muted-foreground">Manage farmer clubs and member registration</p>
           </div>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Create Club
+                Register Club
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create New Club</DialogTitle>
+                <DialogTitle>Register New Club</DialogTitle>
                 <DialogDescription>
-                  Register a new cotton farmer club with complete details
+                  Create a new farmer club registration
                 </DialogDescription>
               </DialogHeader>
-              <ClubForm onSuccess={() => {
-                setShowCreateDialog(false);
-                refetch();
-              }} />
+              <form onSubmit={handleCreateClub} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="name">Club Name</Label>
+                    <Input name="name" required placeholder="Enter club name" />
+                  </div>
+                  <div>
+                    <Label htmlFor="club_type">Club Type</Label>
+                    <Select name="club_type">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Association">Association</SelectItem>
+                        <SelectItem value="Cooperative">Cooperative</SelectItem>
+                        <SelectItem value="Group">Group</SelectItem>
+                        <SelectItem value="Society">Society</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="location">Location</Label>
+                  <Input name="location" required placeholder="Village/Area location" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="contact_person">Contact Person</Label>
+                    <Input name="contact_person" required placeholder="Primary contact name" />
+                  </div>
+                  <div>
+                    <Label htmlFor="contact_phone">Contact Phone</Label>
+                    <Input name="contact_phone" required placeholder="Phone number" />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="contact_email">Contact Email (Optional)</Label>
+                  <Input name="contact_email" type="email" placeholder="Email address" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="chairperson_name">Chairperson Name</Label>
+                    <Input name="chairperson_name" placeholder="Chairperson name" />
+                  </div>
+                  <div>
+                    <Label htmlFor="chairperson_phone">Chairperson Phone</Label>
+                    <Input name="chairperson_phone" placeholder="Chairperson phone" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="village_headman">Village Headman</Label>
+                    <Input name="village_headman" placeholder="Village headman name" />
+                  </div>
+                  <div>
+                    <Label htmlFor="group_village_headman">Group Village Headman</Label>
+                    <Input name="group_village_headman" placeholder="GVH name" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="traditional_authority">Traditional Authority</Label>
+                    <Input name="traditional_authority" placeholder="TA name" />
+                  </div>
+                  <div>
+                    <Label htmlFor="epa">EPA</Label>
+                    <Input name="epa" placeholder="Extension Planning Area" />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="notes">Notes (Optional)</Label>
+                  <Textarea name="notes" placeholder="Additional notes..." rows={3} />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Register Club</Button>
+                </div>
+              </form>
             </DialogContent>
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium">Total Clubs</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{clubs?.length || 0}</div>
+              <div className="text-2xl font-bold">{totalClubs}</div>
             </CardContent>
           </Card>
           <Card>
@@ -111,9 +258,7 @@ export default function Clubs() {
               <CardTitle className="text-sm font-medium">Active Clubs</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {clubs?.filter(c => c.status === 'active').length || 0}
-              </div>
+              <div className="text-2xl font-bold">{activeClubs}</div>
             </CardContent>
           </Card>
           <Card>
@@ -121,347 +266,178 @@ export default function Clubs() {
               <CardTitle className="text-sm font-medium">Total Members</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {clubs?.reduce((sum, club) => sum + (club.total_members || 0), 0) || 0}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Average Credit Score</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {clubs?.length ? 
-                  (clubs.reduce((sum, club) => sum + (club.credit_score || 0), 0) / clubs.length).toFixed(1)
-                  : '0.0'
-                }
-              </div>
+              <div className="text-2xl font-bold">{totalMembers}</div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
+        <Tabs defaultValue="clubs" className="w-full">
+          <TabsList>
+            <TabsTrigger value="clubs">Registered Clubs</TabsTrigger>
+            <TabsTrigger value="members">Club Members</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="clubs">
             <Card>
               <CardHeader>
-                <CardTitle>Clubs Directory</CardTitle>
-                <CardDescription>Select a club to view details</CardDescription>
+                <CardTitle>Registered Clubs</CardTitle>
+                <CardDescription>All farmer clubs in the system</CardDescription>
               </CardHeader>
-              <CardContent className="p-0">
-                <div className="max-h-96 overflow-y-auto">
-                  {clubs?.map((club) => (
-                    <div
-                      key={club.id}
-                      className={`p-4 border-b border-border cursor-pointer hover:bg-accent transition-colors ${
-                        selectedClub?.id === club.id ? 'bg-accent' : ''
-                      }`}
-                      onClick={() => setSelectedClub(club)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-medium">{club.name}</h3>
-                          <p className="text-sm text-muted-foreground">{club.location}</p>
-                        </div>
-                        <Badge variant={club.status === 'active' ? 'default' : 'secondary'}>
-                          {club.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <CardContent>
+                {clubs?.length ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Club Name</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Contact Person</TableHead>
+                        <TableHead>Members</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {clubs.map((club) => (
+                        <TableRow key={club.id}>
+                          <TableCell className="font-medium">{club.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{club.club_type}</Badge>
+                          </TableCell>
+                          <TableCell>{club.location}</TableCell>
+                          <TableCell>{club.contact_person}</TableCell>
+                          <TableCell>{club.total_members}</TableCell>
+                          <TableCell>
+                            <Badge variant={club.status === 'active' ? 'default' : 'secondary'}>
+                              {club.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedClubId(club.id);
+                                setShowMemberDialog(true);
+                              }}
+                            >
+                              Add Member
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-4" />
+                    <p>No clubs registered yet</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          </div>
+          </TabsContent>
 
-          <div className="lg:col-span-2">
-            {selectedClub ? (
-              <Tabs defaultValue="details">
-                <TabsList>
-                  <TabsTrigger value="details">Club Details</TabsTrigger>
-                  <TabsTrigger value="members">Members ({farmers?.length || 0})</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="details">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Users className="h-5 w-5" />
-                        {selectedClub.name}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium">Club Type</Label>
-                          <p className="text-sm text-muted-foreground">{selectedClub.club_type || 'Not specified'}</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium">Total Members</Label>
-                          <p className="text-sm text-muted-foreground">{selectedClub.total_members || 0}</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium">Village Headman</Label>
-                          <p className="text-sm text-muted-foreground">{selectedClub.village_headman || 'Not specified'}</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium">Traditional Authority</Label>
-                          <p className="text-sm text-muted-foreground">{selectedClub.traditional_authority || 'Not specified'}</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium">EPA</Label>
-                          <p className="text-sm text-muted-foreground">{selectedClub.epa || 'Not specified'}</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium">Credit Score</Label>
-                          <p className="text-sm text-muted-foreground">{selectedClub.credit_score || 0}</p>
-                        </div>
-                      </div>
-                      
-                      {selectedClub.chairperson_name && (
-                        <div className="border-t pt-4">
-                          <Label className="text-sm font-medium">Chairperson</Label>
-                          <div className="flex items-center gap-4 mt-2">
-                            <span className="text-sm">{selectedClub.chairperson_name}</span>
-                            {selectedClub.chairperson_phone && (
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Phone className="h-3 w-3" />
-                                {selectedClub.chairperson_phone}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {selectedClub.contract_path && (
-                        <div className="border-t pt-4">
-                          <Label className="text-sm font-medium">Contract</Label>
-                          <div className="flex items-center gap-2 mt-2">
-                            <FileText className="h-4 w-4" />
-                            <Button variant="link" className="p-0 h-auto">
-                              View Contract
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-                
-                <TabsContent value="members">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Club Members</CardTitle>
-                      <CardDescription>
-                        Farmers registered under {selectedClub.name}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {farmers?.length ? (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Name</TableHead>
-                              <TableHead>National ID</TableHead>
-                              <TableHead>Phone</TableHead>
-                              <TableHead>Farm Size</TableHead>
-                              <TableHead>Status</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {farmers.map((farmer) => (
-                              <TableRow key={farmer.id}>
-                                <TableCell className="font-medium">{farmer.full_name}</TableCell>
-                                <TableCell>{farmer.national_id || 'Not provided'}</TableCell>
-                                <TableCell>{farmer.phone}</TableCell>
-                                <TableCell>{farmer.farm_size_acres ? `${farmer.farm_size_acres} acres` : 'Not specified'}</TableCell>
-                                <TableCell>
-                                  <Badge variant={farmer.status === 'active' ? 'default' : 'secondary'}>
-                                    {farmer.status}
-                                  </Badge>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          No members registered yet
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            ) : (
-              <Card>
-                <CardContent className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">Select a club to view details</p>
+          <TabsContent value="members">
+            <Card>
+              <CardHeader>
+                <CardTitle>Club Members</CardTitle>
+                <CardDescription>Registered farmers across all clubs</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {farmers?.length ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Club</TableHead>
+                        <TableHead>National ID</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Farm Size</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Joined</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {farmers.map((farmer) => (
+                        <TableRow key={farmer.id}>
+                          <TableCell className="font-medium">{farmer.full_name}</TableCell>
+                          <TableCell>{farmer.farmer_groups?.name}</TableCell>
+                          <TableCell>{farmer.national_id || '-'}</TableCell>
+                          <TableCell>{farmer.phone}</TableCell>
+                          <TableCell>{farmer.farm_size_acres ? `${farmer.farm_size_acres} acres` : '-'}</TableCell>
+                          <TableCell>
+                            <Badge variant={farmer.status === 'active' ? 'default' : 'secondary'}>
+                              {farmer.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{format(new Date(farmer.join_date), "MMM dd, yyyy")}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-4" />
+                    <p>No members registered yet</p>
                   </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        <Dialog open={showMemberDialog} onOpenChange={setShowMemberDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add Club Member</DialogTitle>
+              <DialogDescription>
+                Register a new farmer to the selected club
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleAddMember} className="space-y-4">
+              <div>
+                <Label htmlFor="full_name">Full Name</Label>
+                <Input name="full_name" required placeholder="Enter full name" />
+              </div>
+              <div>
+                <Label htmlFor="national_id">National ID (Optional)</Label>
+                <Input name="national_id" placeholder="National ID number" />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input name="phone" required placeholder="Phone number" />
+              </div>
+              <div>
+                <Label htmlFor="gender">Gender</Label>
+                <Select name="gender">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="date_of_birth">Date of Birth (Optional)</Label>
+                <Input name="date_of_birth" type="date" />
+              </div>
+              <div>
+                <Label htmlFor="farm_size_acres">Farm Size (Acres)</Label>
+                <Input name="farm_size_acres" type="number" step="0.1" placeholder="Farm size in acres" />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setShowMemberDialog(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Add Member</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
-  );
-}
-
-function ClubForm({ onSuccess }: { onSuccess: () => void }) {
-  const { user } = useAuth();
-  const [formData, setFormData] = useState({
-    name: '',
-    club_type: '',
-    location: '',
-    village_headman: '',
-    group_village_headman: '',
-    traditional_authority: '',
-    epa: '',
-    chairperson_name: '',
-    chairperson_phone: '',
-    contact_person: '',
-    contact_phone: '',
-    contact_email: '',
-    total_members: 0,
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      const { error } = await supabase
-        .from("farmer_groups")
-        .insert({
-          ...formData,
-          created_by: user?.id,
-          status: 'active',
-        });
-
-      if (error) throw error;
-      
-      toast.success("Club created successfully!");
-      onSuccess();
-    } catch (error) {
-      console.error("Error creating club:", error);
-      toast.error("Failed to create club");
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="name">Club Name</Label>
-          <Input
-            id="name"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="club_type">Club Type</Label>
-          <Input
-            id="club_type"
-            value={formData.club_type}
-            onChange={(e) => setFormData({ ...formData, club_type: e.target.value })}
-            placeholder="Association, Cooperative, etc."
-          />
-        </div>
-        <div>
-          <Label htmlFor="location">Location</Label>
-          <Input
-            id="location"
-            value={formData.location}
-            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="village_headman">Village Headman</Label>
-          <Input
-            id="village_headman"
-            value={formData.village_headman}
-            onChange={(e) => setFormData({ ...formData, village_headman: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="traditional_authority">Traditional Authority</Label>
-          <Input
-            id="traditional_authority"
-            value={formData.traditional_authority}
-            onChange={(e) => setFormData({ ...formData, traditional_authority: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="epa">EPA</Label>
-          <Input
-            id="epa"
-            value={formData.epa}
-            onChange={(e) => setFormData({ ...formData, epa: e.target.value })}
-            placeholder="Extension Planning Area"
-          />
-        </div>
-        <div>
-          <Label htmlFor="chairperson_name">Chairperson Name</Label>
-          <Input
-            id="chairperson_name"
-            value={formData.chairperson_name}
-            onChange={(e) => setFormData({ ...formData, chairperson_name: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="chairperson_phone">Chairperson Phone</Label>
-          <Input
-            id="chairperson_phone"
-            value={formData.chairperson_phone}
-            onChange={(e) => setFormData({ ...formData, chairperson_phone: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="contact_person">Contact Person</Label>
-          <Input
-            id="contact_person"
-            value={formData.contact_person}
-            onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="contact_phone">Contact Phone</Label>
-          <Input
-            id="contact_phone"
-            value={formData.contact_phone}
-            onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="contact_email">Contact Email</Label>
-          <Input
-            id="contact_email"
-            type="email"
-            value={formData.contact_email}
-            onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="total_members">Initial Member Count</Label>
-          <Input
-            id="total_members"
-            type="number"
-            value={formData.total_members}
-            onChange={(e) => setFormData({ ...formData, total_members: parseInt(e.target.value) || 0 })}
-          />
-        </div>
-      </div>
-      
-      <div className="flex justify-end space-x-2 pt-4">
-        <Button type="submit">Create Club</Button>
-      </div>
-    </form>
   );
 }

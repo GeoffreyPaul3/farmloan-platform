@@ -1,16 +1,16 @@
 
 import { DashboardLayout } from "@/layouts/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, TrendingUp, DollarSign, AlertCircle } from "lucide-react";
+import { DollarSign, CreditCard, TrendingUp, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 
 export default function Payments() {
-  const { data: payouts, isLoading } = useQuery({
+  const { data: payouts, isLoading: payoutsLoading } = useQuery({
     queryKey: ["payouts"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -18,6 +18,7 @@ export default function Payments() {
         .select(`
           *,
           deliveries(
+            *,
             farmers(full_name),
             farmer_groups(name)
           )
@@ -29,7 +30,7 @@ export default function Payments() {
     },
   });
 
-  const { data: loanLedgers } = useQuery({
+  const { data: loanLedgers, isLoading: ledgersLoading } = useQuery({
     queryKey: ["loan-ledgers"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -37,17 +38,33 @@ export default function Payments() {
         .select(`
           *,
           farmers(full_name),
+          loans(amount, loan_type),
           seasons(name)
         `)
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .order("created_at", { ascending: false });
       
       if (error) throw error;
       return data;
     },
   });
 
-  if (isLoading) {
+  const { data: loans } = useQuery({
+    queryKey: ["loans"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("loans")
+        .select(`
+          *,
+          farmer_groups(name)
+        `)
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  if (payoutsLoading || ledgersLoading) {
     return (
       <DashboardLayout>
         <div className="p-6">
@@ -60,8 +77,9 @@ export default function Payments() {
     );
   }
 
-  const totalPaid = payouts?.reduce((sum, p) => sum + (p.net_paid || 0), 0) || 0;
-  const totalDeductions = payouts?.reduce((sum, p) => sum + (p.loan_deduction || 0), 0) || 0;
+  const totalPayouts = payouts?.reduce((sum, p) => sum + p.net_paid, 0) || 0;
+  const totalDeductions = payouts?.reduce((sum, p) => sum + p.loan_deduction, 0) || 0;
+  const outstandingLoans = loans?.reduce((sum, l) => sum + l.outstanding_balance, 0) || 0;
 
   return (
     <DashboardLayout>
@@ -76,18 +94,10 @@ export default function Payments() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Payouts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{payouts?.length || 0}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Net Paid</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">${totalPaid.toFixed(2)}</div>
+              <div className="text-2xl font-bold">${totalPayouts.toFixed(2)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -95,7 +105,15 @@ export default function Payments() {
               <CardTitle className="text-sm font-medium">Loan Deductions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">${totalDeductions.toFixed(2)}</div>
+              <div className="text-2xl font-bold">${totalDeductions.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Outstanding Loans</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${outstandingLoans.toFixed(2)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -104,23 +122,26 @@ export default function Payments() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {totalPaid ? ((totalDeductions / (totalPaid + totalDeductions)) * 100).toFixed(1) : 0}%
+                {totalDeductions && outstandingLoans ? 
+                  ((totalDeductions / (totalDeductions + outstandingLoans)) * 100).toFixed(1) + '%' 
+                  : '0%'}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <Tabs defaultValue="payouts">
+        <Tabs defaultValue="payouts" className="w-full">
           <TabsList>
-            <TabsTrigger value="payouts">Recent Payouts</TabsTrigger>
-            <TabsTrigger value="ledgers">Loan Ledgers</TabsTrigger>
+            <TabsTrigger value="payouts">Payment History</TabsTrigger>
+            <TabsTrigger value="ledgers">Farmer Ledgers</TabsTrigger>
+            <TabsTrigger value="loans">Outstanding Loans</TabsTrigger>
           </TabsList>
 
           <TabsContent value="payouts">
             <Card>
               <CardHeader>
                 <CardTitle>Payment History</CardTitle>
-                <CardDescription>Recent farmer payments with loan deductions</CardDescription>
+                <CardDescription>Processed payments and deductions</CardDescription>
               </CardHeader>
               <CardContent>
                 {payouts?.length ? (
@@ -141,28 +162,22 @@ export default function Payments() {
                       {payouts.map((payout) => (
                         <TableRow key={payout.id}>
                           <TableCell>{format(new Date(payout.created_at), "MMM dd, yyyy")}</TableCell>
-                          <TableCell className="font-medium">
-                            {payout.deliveries?.farmers?.full_name}
-                          </TableCell>
+                          <TableCell className="font-medium">{payout.deliveries?.farmers?.full_name}</TableCell>
                           <TableCell>{payout.deliveries?.farmer_groups?.name}</TableCell>
                           <TableCell>${payout.gross_amount.toFixed(2)}</TableCell>
-                          <TableCell className="text-orange-600">
-                            -${payout.loan_deduction.toFixed(2)}
-                          </TableCell>
-                          <TableCell className="text-green-600 font-medium">
-                            ${payout.net_paid.toFixed(2)}
-                          </TableCell>
+                          <TableCell className="text-red-600">-${payout.loan_deduction.toFixed(2)}</TableCell>
+                          <TableCell className="font-medium">${payout.net_paid.toFixed(2)}</TableCell>
                           <TableCell>
                             <Badge variant="outline">{payout.method}</Badge>
                           </TableCell>
-                          <TableCell>{payout.reference_number || 'N/A'}</TableCell>
+                          <TableCell>{payout.reference_number || '-'}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    <CreditCard className="h-12 w-12 mx-auto mb-4" />
+                    <DollarSign className="h-12 w-12 mx-auto mb-4" />
                     <p>No payments processed yet</p>
                   </div>
                 )}
@@ -173,8 +188,8 @@ export default function Payments() {
           <TabsContent value="ledgers">
             <Card>
               <CardHeader>
-                <CardTitle>Loan Ledger Entries</CardTitle>
-                <CardDescription>Detailed loan transaction history per farmer</CardDescription>
+                <CardTitle>Farmer Ledgers</CardTitle>
+                <CardDescription>Individual farmer account movements</CardDescription>
               </CardHeader>
               <CardContent>
                 {loanLedgers?.length ? (
@@ -187,25 +202,78 @@ export default function Payments() {
                         <TableHead>Amount</TableHead>
                         <TableHead>Balance After</TableHead>
                         <TableHead>Season</TableHead>
-                        <TableHead>Reference</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {loanLedgers.map((entry) => (
-                        <TableRow key={entry.id}>
-                          <TableCell>{format(new Date(entry.created_at), "MMM dd, yyyy")}</TableCell>
-                          <TableCell className="font-medium">{entry.farmers?.full_name}</TableCell>
+                      {loanLedgers.map((ledger) => (
+                        <TableRow key={ledger.id}>
+                          <TableCell>{format(new Date(ledger.created_at), "MMM dd, yyyy")}</TableCell>
+                          <TableCell className="font-medium">{ledger.farmers?.full_name}</TableCell>
                           <TableCell>
-                            <Badge variant={entry.entry_type === 'sale_deduction' ? 'default' : 'secondary'}>
-                              {entry.entry_type.replace('_', ' ')}
+                            <Badge variant={ledger.entry_type === 'loan' ? 'destructive' : 'default'}>
+                              {ledger.entry_type}
                             </Badge>
                           </TableCell>
-                          <TableCell className={entry.amount < 0 ? 'text-orange-600' : 'text-blue-600'}>
-                            ${Math.abs(entry.amount).toFixed(2)}
+                          <TableCell className={ledger.entry_type === 'loan' ? 'text-red-600' : 'text-green-600'}>
+                            {ledger.entry_type === 'loan' ? '+' : '-'}${Math.abs(ledger.amount).toFixed(2)}
                           </TableCell>
-                          <TableCell>${entry.balance_after?.toFixed(2) || '0.00'}</TableCell>
-                          <TableCell>{entry.seasons?.name || 'N/A'}</TableCell>
-                          <TableCell>{entry.reference_table || 'N/A'}</TableCell>
+                          <TableCell>${ledger.balance_after?.toFixed(2) || '0.00'}</TableCell>
+                          <TableCell>{ledger.seasons?.name || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <CreditCard className="h-12 w-12 mx-auto mb-4" />
+                    <p>No ledger entries yet</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="loans">
+            <Card>
+              <CardHeader>
+                <CardTitle>Outstanding Loans</CardTitle>
+                <CardDescription>Current loan balances by club</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loans?.length ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Club</TableHead>
+                        <TableHead>Loan Type</TableHead>
+                        <TableHead>Original Amount</TableHead>
+                        <TableHead>Outstanding Balance</TableHead>
+                        <TableHead>Interest Rate</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Due Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loans.map((loan) => (
+                        <TableRow key={loan.id}>
+                          <TableCell className="font-medium">{loan.farmer_groups?.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{loan.loan_type}</Badge>
+                          </TableCell>
+                          <TableCell>${loan.amount.toFixed(2)}</TableCell>
+                          <TableCell className="font-medium">${loan.outstanding_balance.toFixed(2)}</TableCell>
+                          <TableCell>{loan.interest_rate}%</TableCell>
+                          <TableCell>
+                            <Badge variant={
+                              loan.status === 'active' ? 'default' : 
+                              loan.status === 'paid' ? 'secondary' : 'destructive'
+                            }>
+                              {loan.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {loan.due_date ? format(new Date(loan.due_date), "MMM dd, yyyy") : '-'}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -213,7 +281,7 @@ export default function Payments() {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <TrendingUp className="h-12 w-12 mx-auto mb-4" />
-                    <p>No ledger entries yet</p>
+                    <p>No outstanding loans</p>
                   </div>
                 )}
               </CardContent>

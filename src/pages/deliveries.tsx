@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, ShoppingCart, Scale, DollarSign } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -14,6 +17,8 @@ import { toast } from "sonner";
 
 export default function Deliveries() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showGradingDialog, setShowGradingDialog] = useState(false);
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
 
   const { data: deliveries, isLoading, refetch } = useQuery({
     queryKey: ["deliveries"],
@@ -33,6 +38,32 @@ export default function Deliveries() {
     },
   });
 
+  const { data: farmers } = useQuery({
+    queryKey: ["farmers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("farmers")
+        .select("*, farmer_groups(name)")
+        .order("full_name");
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: seasons } = useQuery({
+    queryKey: ["seasons"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("seasons")
+        .select("*")
+        .order("start_date", { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: gradingEntries } = useQuery({
     queryKey: ["grading-entries"],
     queryFn: async () => {
@@ -45,6 +76,69 @@ export default function Deliveries() {
       return data;
     },
   });
+
+  const handleCreateDelivery = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const farmerId = formData.get("farmer_id") as string;
+      const farmer = farmers?.find(f => f.id === farmerId);
+      
+      const deliveryData = {
+        farmer_id: farmerId,
+        farmer_group_id: farmer?.farmer_group_id,
+        season_id: formData.get("season_id") as string || null,
+        weight: parseFloat(formData.get("weight") as string),
+        price_per_kg: parseFloat(formData.get("price_per_kg") as string),
+        delivery_date: formData.get("delivery_date") as string,
+        officer_id: (await supabase.auth.getUser()).data.user?.id
+      };
+
+      deliveryData.gross_amount = deliveryData.weight * deliveryData.price_per_kg;
+
+      const { error } = await supabase
+        .from("deliveries")
+        .insert([deliveryData]);
+
+      if (error) throw error;
+
+      toast.success("Cotton delivery recorded successfully!");
+      setShowCreateDialog(false);
+      refetch();
+    } catch (error) {
+      console.error("Error creating delivery:", error);
+      toast.error("Failed to record delivery");
+    }
+  };
+
+  const handleCreateGrading = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const gradingData = {
+        delivery_id: selectedDeliveryId,
+        weight: parseFloat(formData.get("weight") as string),
+        grade: formData.get("grade") as string,
+        grader_id: (await supabase.auth.getUser()).data.user?.id
+      };
+
+      const { error } = await supabase
+        .from("grading_entries")
+        .insert([gradingData]);
+
+      if (error) throw error;
+
+      toast.success("Grading entry recorded successfully!");
+      setShowGradingDialog(false);
+      setSelectedDeliveryId(null);
+      refetch();
+    } catch (error) {
+      console.error("Error creating grading:", error);
+      toast.error("Failed to record grading");
+    }
+  };
 
   const handleProcessPayment = async (deliveryId: string) => {
     try {
@@ -96,17 +190,80 @@ export default function Deliveries() {
                 Record Delivery
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Record Cotton Delivery</DialogTitle>
                 <DialogDescription>
                   Capture delivery details at the buying post
                 </DialogDescription>
               </DialogHeader>
-              <div className="p-4 text-center text-muted-foreground">
-                <ShoppingCart className="h-12 w-12 mx-auto mb-4" />
-                <p>Delivery recording form would be implemented here with weight, farmer selection, and grading</p>
-              </div>
+              <form onSubmit={handleCreateDelivery} className="space-y-4">
+                <div>
+                  <Label htmlFor="farmer_id">Farmer</Label>
+                  <Select name="farmer_id" required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select farmer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {farmers?.map((farmer) => (
+                        <SelectItem key={farmer.id} value={farmer.id}>
+                          {farmer.full_name} ({farmer.farmer_groups?.name})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="season_id">Season (Optional)</Label>
+                  <Select name="season_id">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select season" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {seasons?.map((season) => (
+                        <SelectItem key={season.id} value={season.id}>
+                          {season.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="weight">Weight (kg)</Label>
+                  <Input 
+                    name="weight" 
+                    type="number" 
+                    step="0.1" 
+                    required 
+                    placeholder="Enter weight"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="price_per_kg">Price per KG ($)</Label>
+                  <Input 
+                    name="price_per_kg" 
+                    type="number" 
+                    step="0.01" 
+                    required 
+                    placeholder="Enter price per kg"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="delivery_date">Delivery Date</Label>
+                  <Input 
+                    name="delivery_date" 
+                    type="date" 
+                    required 
+                    defaultValue={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Record Delivery</Button>
+                </div>
+              </form>
             </DialogContent>
           </Dialog>
         </div>
@@ -189,6 +346,16 @@ export default function Deliveries() {
                             <Button 
                               size="sm" 
                               variant="outline"
+                              onClick={() => {
+                                setSelectedDeliveryId(delivery.id);
+                                setShowGradingDialog(true);
+                              }}
+                            >
+                              Add Grading
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
                               onClick={() => handleProcessPayment(delivery.id)}
                             >
                               Process Payment
@@ -208,6 +375,49 @@ export default function Deliveries() {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={showGradingDialog} onOpenChange={setShowGradingDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add Grading Entry</DialogTitle>
+              <DialogDescription>
+                Record grading details for the selected delivery
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateGrading} className="space-y-4">
+              <div>
+                <Label htmlFor="weight">Graded Weight (kg)</Label>
+                <Input 
+                  name="weight" 
+                  type="number" 
+                  step="0.1" 
+                  required 
+                  placeholder="Enter graded weight"
+                />
+              </div>
+              <div>
+                <Label htmlFor="grade">Grade</Label>
+                <Select name="grade" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select grade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A">Grade A</SelectItem>
+                    <SelectItem value="B">Grade B</SelectItem>
+                    <SelectItem value="C">Grade C</SelectItem>
+                    <SelectItem value="Reject">Reject</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setShowGradingDialog(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Add Grading</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
