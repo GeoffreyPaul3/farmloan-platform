@@ -53,6 +53,80 @@ export type Database = {
         }
         Relationships: []
       }
+      club_assignments: {
+        Row: {
+          assigned_by: string
+          created_at: string
+          farmer_group_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_by: string
+          created_at?: string
+          farmer_group_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          assigned_by?: string
+          created_at?: string
+          farmer_group_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      deliveries: {
+        Row: {
+          created_at: string
+          delivery_date: string
+          farmer_group_id: string
+          farmer_id: string
+          gross_amount: number | null
+          id: string
+          officer_id: string
+          price_per_kg: number | null
+          season_id: string | null
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          delivery_date?: string
+          farmer_group_id: string
+          farmer_id: string
+          gross_amount?: number | null
+          id?: string
+          officer_id: string
+          price_per_kg?: number | null
+          season_id?: string | null
+          updated_at?: string
+          weight: number
+        }
+        Update: {
+          created_at?: string
+          delivery_date?: string
+          farmer_group_id?: string
+          farmer_id?: string
+          gross_amount?: number | null
+          id?: string
+          officer_id?: string
+          price_per_kg?: number | null
+          season_id?: string | null
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliveries_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment: {
         Row: {
           brand: string | null
@@ -178,12 +252,18 @@ export type Database = {
       }
       farmer_groups: {
         Row: {
+          chairperson_name: string | null
+          chairperson_phone: string | null
+          club_type: string | null
           contact_email: string | null
           contact_person: string
           contact_phone: string
+          contract_path: string | null
           created_at: string
           created_by: string
           credit_score: number | null
+          epa: string | null
+          group_village_headman: string | null
           id: string
           location: string
           name: string
@@ -191,15 +271,23 @@ export type Database = {
           registration_date: string
           status: string
           total_members: number
+          traditional_authority: string | null
           updated_at: string
+          village_headman: string | null
         }
         Insert: {
+          chairperson_name?: string | null
+          chairperson_phone?: string | null
+          club_type?: string | null
           contact_email?: string | null
           contact_person: string
           contact_phone: string
+          contract_path?: string | null
           created_at?: string
           created_by: string
           credit_score?: number | null
+          epa?: string | null
+          group_village_headman?: string | null
           id?: string
           location: string
           name: string
@@ -207,15 +295,23 @@ export type Database = {
           registration_date?: string
           status?: string
           total_members?: number
+          traditional_authority?: string | null
           updated_at?: string
+          village_headman?: string | null
         }
         Update: {
+          chairperson_name?: string | null
+          chairperson_phone?: string | null
+          club_type?: string | null
           contact_email?: string | null
           contact_person?: string
           contact_phone?: string
+          contract_path?: string | null
           created_at?: string
           created_by?: string
           credit_score?: number | null
+          epa?: string | null
+          group_village_headman?: string | null
           id?: string
           location?: string
           name?: string
@@ -223,7 +319,9 @@ export type Database = {
           registration_date?: string
           status?: string
           total_members?: number
+          traditional_authority?: string | null
           updated_at?: string
+          village_headman?: string | null
         }
         Relationships: []
       }
@@ -237,10 +335,14 @@ export type Database = {
           farmer_group_id: string
           full_name: string
           gender: string | null
+          gps_lat: number | null
+          gps_lng: number | null
           id: string
           join_date: string
           national_id: string | null
           phone: string
+          photo_path: string | null
+          signature_path: string | null
           status: string
           updated_at: string
         }
@@ -253,10 +355,14 @@ export type Database = {
           farmer_group_id: string
           full_name: string
           gender?: string | null
+          gps_lat?: number | null
+          gps_lng?: number | null
           id?: string
           join_date?: string
           national_id?: string | null
           phone: string
+          photo_path?: string | null
+          signature_path?: string | null
           status?: string
           updated_at?: string
         }
@@ -269,10 +375,14 @@ export type Database = {
           farmer_group_id?: string
           full_name?: string
           gender?: string | null
+          gps_lat?: number | null
+          gps_lng?: number | null
           id?: string
           join_date?: string
           national_id?: string | null
           phone?: string
+          photo_path?: string | null
+          signature_path?: string | null
           status?: string
           updated_at?: string
         }
@@ -282,6 +392,344 @@ export type Database = {
             columns: ["farmer_group_id"]
             isOneToOne: false
             referencedRelation: "farmer_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      field_visits: {
+        Row: {
+          created_at: string
+          created_by: string
+          crop_stage: Database["public"]["Enums"]["crop_stage_enum"] | null
+          expected_yield: number | null
+          farmer_group_id: string
+          farmer_id: string
+          gps_lat: number | null
+          gps_lng: number | null
+          id: string
+          observations: string | null
+          photos: Json
+          season_id: string | null
+          updated_at: string
+          visit_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          crop_stage?: Database["public"]["Enums"]["crop_stage_enum"] | null
+          expected_yield?: number | null
+          farmer_group_id: string
+          farmer_id: string
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          observations?: string | null
+          photos?: Json
+          season_id?: string | null
+          updated_at?: string
+          visit_date?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          crop_stage?: Database["public"]["Enums"]["crop_stage_enum"] | null
+          expected_yield?: number | null
+          farmer_group_id?: string
+          farmer_id?: string
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          observations?: string | null
+          photos?: Json
+          season_id?: string | null
+          updated_at?: string
+          visit_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_visits_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grading_entries: {
+        Row: {
+          created_at: string
+          delivery_id: string
+          grade: string
+          grader_id: string
+          id: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          delivery_id: string
+          grade: string
+          grader_id: string
+          id?: string
+          weight: number
+        }
+        Update: {
+          created_at?: string
+          delivery_id?: string
+          grade?: string
+          grader_id?: string
+          id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grading_entries_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      input_acknowledgements: {
+        Row: {
+          ack_at: string
+          ack_by: string | null
+          distribution_id: string
+          id: string
+          notes: string | null
+          photo_path: string | null
+          signature_path: string | null
+        }
+        Insert: {
+          ack_at?: string
+          ack_by?: string | null
+          distribution_id: string
+          id?: string
+          notes?: string | null
+          photo_path?: string | null
+          signature_path?: string | null
+        }
+        Update: {
+          ack_at?: string
+          ack_by?: string | null
+          distribution_id?: string
+          id?: string
+          notes?: string | null
+          photo_path?: string | null
+          signature_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "input_acknowledgements_distribution_id_fkey"
+            columns: ["distribution_id"]
+            isOneToOne: false
+            referencedRelation: "input_distributions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      input_distributions: {
+        Row: {
+          acknowledgement_path: string | null
+          acknowledgement_received: boolean
+          created_at: string
+          distributed_by: string
+          distribution_date: string
+          farmer_group_id: string
+          farmer_id: string | null
+          id: string
+          item_id: string
+          notes: string | null
+          quantity: number
+          season_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          acknowledgement_path?: string | null
+          acknowledgement_received?: boolean
+          created_at?: string
+          distributed_by: string
+          distribution_date?: string
+          farmer_group_id: string
+          farmer_id?: string | null
+          id?: string
+          item_id: string
+          notes?: string | null
+          quantity: number
+          season_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          acknowledgement_path?: string | null
+          acknowledgement_received?: boolean
+          created_at?: string
+          distributed_by?: string
+          distribution_date?: string
+          farmer_group_id?: string
+          farmer_id?: string | null
+          id?: string
+          item_id?: string
+          notes?: string | null
+          quantity?: number
+          season_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "input_distributions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "input_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "input_distributions_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      input_items: {
+        Row: {
+          active: boolean
+          category: string
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          sku: string | null
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category: string
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          sku?: string | null
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          sku?: string | null
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      input_stock: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          item_id: string
+          notes: string | null
+          quantity: number
+          received_date: string
+          season_id: string | null
+          source: string | null
+          unit_cost: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          item_id: string
+          notes?: string | null
+          quantity: number
+          received_date?: string
+          season_id?: string | null
+          source?: string | null
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          item_id?: string
+          notes?: string | null
+          quantity?: number
+          received_date?: string
+          season_id?: string | null
+          source?: string | null
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "input_stock_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "input_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "input_stock_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loan_ledgers: {
+        Row: {
+          amount: number
+          balance_after: number | null
+          created_at: string
+          created_by: string
+          entry_type: string
+          farmer_id: string
+          id: string
+          loan_id: string | null
+          reference_id: string | null
+          reference_table: string | null
+          season_id: string | null
+        }
+        Insert: {
+          amount: number
+          balance_after?: number | null
+          created_at?: string
+          created_by: string
+          entry_type: string
+          farmer_id: string
+          id?: string
+          loan_id?: string | null
+          reference_id?: string | null
+          reference_table?: string | null
+          season_id?: string | null
+        }
+        Update: {
+          amount?: number
+          balance_after?: number | null
+          created_at?: string
+          created_by?: string
+          entry_type?: string
+          farmer_id?: string
+          id?: string
+          loan_id?: string | null
+          reference_id?: string | null
+          reference_table?: string | null
+          season_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loan_ledgers_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
             referencedColumns: ["id"]
           },
         ]
@@ -347,6 +795,50 @@ export type Database = {
             columns: ["farmer_group_id"]
             isOneToOne: false
             referencedRelation: "farmer_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payouts: {
+        Row: {
+          created_at: string
+          created_by: string
+          delivery_id: string
+          gross_amount: number
+          id: string
+          loan_deduction: number
+          method: string
+          net_paid: number
+          reference_number: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          delivery_id: string
+          gross_amount: number
+          id?: string
+          loan_deduction?: number
+          method: string
+          net_paid: number
+          reference_number?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          delivery_id?: string
+          gross_amount?: number
+          id?: string
+          loan_deduction?: number
+          method?: string
+          net_paid?: number
+          reference_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payouts_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
             referencedColumns: ["id"]
           },
         ]
@@ -434,6 +926,39 @@ export type Database = {
           },
         ]
       }
+      seasons: {
+        Row: {
+          created_at: string
+          created_by: string
+          end_date: string
+          id: string
+          is_active: boolean
+          name: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          end_date: string
+          id?: string
+          is_active?: boolean
+          name: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          end_date?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -443,8 +968,27 @@ export type Database = {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      is_user_allowed_storage_object: {
+        Args: { _user_id?: string; bucket: string; object_name: string }
+        Returns: boolean
+      }
+      is_user_assigned_to_club: {
+        Args: { _club_id: string; _user_id?: string }
+        Returns: boolean
+      }
+      loan_belongs_to_user: {
+        Args: { _loan_id: string; _user_id?: string }
+        Returns: boolean
+      }
     }
     Enums: {
+      crop_stage_enum:
+        | "sowing"
+        | "vegetative"
+        | "flowering"
+        | "boll_formation"
+        | "maturity"
+        | "harvest"
       user_role: "admin" | "staff"
     }
     CompositeTypes: {
@@ -573,6 +1117,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      crop_stage_enum: [
+        "sowing",
+        "vegetative",
+        "flowering",
+        "boll_formation",
+        "maturity",
+        "harvest",
+      ],
       user_role: ["admin", "staff"],
     },
   },

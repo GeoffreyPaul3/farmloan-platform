@@ -1,92 +1,57 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ThemeProvider } from "@/components/ui/theme-provider";
 import { AuthProvider } from "@/hooks/use-auth";
-import { DashboardLayout } from "@/layouts/dashboard-layout";
-
-// Pages
+import { ThemeProvider } from "@/components/ui/theme-provider";
 import Index from "./pages/Index";
-import AuthPage from "./pages/auth";
 import Dashboard from "./pages/dashboard";
+import Auth from "./pages/auth";
 import NotFound from "./pages/NotFound";
+import Clubs from "./pages/clubs";
+import Seasons from "./pages/seasons";
+import Inputs from "./pages/inputs";
+import FieldVisits from "./pages/field-visits";
+import Deliveries from "./pages/deliveries";
+import Payments from "./pages/payments";
+import Equipment from "./pages/equipment";
+import Uploads from "./pages/uploads";
+import Audit from "./pages/audit";
+import Reports from "./pages/reports";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="light" storageKey="farm-platform-theme">
-      <AuthProvider>
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
         <TooltipProvider>
           <Toaster />
-          <Sonner />
           <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<AuthPage />} />
-              <Route path="/dashboard" element={
-                <DashboardLayout>
-                  <Dashboard />
-                </DashboardLayout>
-              } />
-              <Route path="/farmers" element={
-                <DashboardLayout>
-                  <div className="p-8">
-                    <h1 className="text-2xl font-bold">Farmer Groups</h1>
-                    <p className="text-muted-foreground">Coming soon...</p>
-                  </div>
-                </DashboardLayout>
-              } />
-              <Route path="/loans" element={
-                <DashboardLayout>
-                  <div className="p-8">
-                    <h1 className="text-2xl font-bold">Loans Management</h1>
-                    <p className="text-muted-foreground">Coming soon...</p>
-                  </div>
-                </DashboardLayout>
-              } />
-              <Route path="/equipment" element={
-                <DashboardLayout>
-                  <div className="p-8">
-                    <h1 className="text-2xl font-bold">Equipment Management</h1>
-                    <p className="text-muted-foreground">Coming soon...</p>
-                  </div>
-                </DashboardLayout>
-              } />
-              <Route path="/analytics" element={
-                <DashboardLayout>
-                  <div className="p-8">
-                    <h1 className="text-2xl font-bold">Analytics & Reports</h1>
-                    <p className="text-muted-foreground">Coming soon...</p>
-                  </div>
-                </DashboardLayout>
-              } />
-              <Route path="/documents" element={
-                <DashboardLayout>
-                  <div className="p-8">
-                    <h1 className="text-2xl font-bold">Document Management</h1>
-                    <p className="text-muted-foreground">Coming soon...</p>
-                  </div>
-                </DashboardLayout>
-              } />
-              <Route path="/settings" element={
-                <DashboardLayout>
-                  <div className="p-8">
-                    <h1 className="text-2xl font-bold">System Settings</h1>
-                    <p className="text-muted-foreground">Coming soon...</p>
-                  </div>
-                </DashboardLayout>
-              } />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <AuthProvider>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/clubs" element={<Clubs />} />
+                <Route path="/seasons" element={<Seasons />} />
+                <Route path="/inputs" element={<Inputs />} />
+                <Route path="/field-visits" element={<FieldVisits />} />
+                <Route path="/deliveries" element={<Deliveries />} />
+                <Route path="/payments" element={<Payments />} />
+                <Route path="/equipment" element={<Equipment />} />
+                <Route path="/uploads" element={<Uploads />} />
+                <Route path="/audit" element={<Audit />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>
-      </AuthProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
