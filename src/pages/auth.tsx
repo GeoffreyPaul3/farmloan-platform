@@ -25,8 +25,7 @@ export default function AuthPage() {
   const [signUpData, setSignUpData] = useState({ 
     email: "", 
     password: "", 
-    fullName: "",
-    role: "staff" as 'admin' | 'staff'
+    fullName: ""
   });
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
 
@@ -73,8 +72,7 @@ export default function AuthPage() {
       const { error } = await signUp(
         signUpData.email, 
         signUpData.password, 
-        signUpData.fullName,
-        signUpData.role
+        signUpData.fullName
       );
       
       if (error) {
@@ -86,7 +84,7 @@ export default function AuthPage() {
       } else {
         toast({
           title: "Account Created!",
-          description: "Please check your email to confirm your account.",
+          description: "Please check your email to confirm your account. Your account will be reviewed by an administrator before you can access the system.",
         });
       }
     } catch (error: any) {
@@ -244,6 +242,11 @@ export default function AuthPage() {
               
               {/* Sign Up Tab */}
               <TabsContent value="signup" className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg mb-4">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Note:</strong> All new registrations are automatically assigned as Staff members and require administrator approval before access is granted.
+                  </p>
+                </div>
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="fullName">Full Name</Label>
@@ -271,21 +274,7 @@ export default function AuthPage() {
                     />
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Role</Label>
-                    <Select
-                      value={signUpData.role}
-                      onValueChange={(value: 'admin' | 'staff') => setSignUpData(prev => ({ ...prev, role: value }))}
-                    >
-                      <SelectTrigger className="input-enterprise">
-                        <SelectValue placeholder="Select your role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="staff">Staff Member</SelectItem>
-                        <SelectItem value="admin">Administrator</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+
                   
                   <div className="space-y-2">
                     <Label htmlFor="signupPassword">Password</Label>

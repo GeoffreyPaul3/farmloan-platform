@@ -34,6 +34,7 @@ interface UserProfile {
   email: string;
   full_name: string;
   role: 'admin' | 'staff';
+  approved: boolean;
   phone?: string;
   created_at: string;
 }
@@ -75,6 +76,50 @@ export default function Admin() {
     phone: ""
   });
   const queryClient = useQueryClient();
+
+  // Approve user mutation
+  const approveUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ approved: true })
+        .eq("user_id", userId);
+      
+      if (error) throw error;
+      return userId;
+    },
+    onSuccess: (userId) => {
+      toast.success("User approved successfully");
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to approve user");
+      console.error("Approve user error:", error);
+    }
+  });
+
+  // Reject user mutation
+  const rejectUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ approved: false })
+        .eq("user_id", userId);
+      
+      if (error) throw error;
+      return userId;
+    },
+    onSuccess: (userId) => {
+      toast.success("User rejected successfully");
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to reject user");
+      console.error("Reject user error:", error);
+    }
+  });
 
   // Check if user is admin
   const { data: userProfile } = useQuery({
@@ -306,6 +351,21 @@ export default function Admin() {
           </div>
         </div>
 
+        {/* Pending Approvals Alert */}
+        {users?.filter(u => !u.approved && u.role === 'staff').length > 0 && (
+          <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-800 dark:text-orange-200">
+                <AlertTriangle className="h-5 w-5" />
+                Pending Staff Approvals
+              </CardTitle>
+              <CardDescription className="text-orange-700 dark:text-orange-300">
+                {users.filter(u => !u.approved && u.role === 'staff').length} staff member(s) awaiting approval
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
+
         {/* System Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <Card>
@@ -497,12 +557,34 @@ export default function Admin() {
                         </TableCell>
                         <TableCell>{user.phone || '-'}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-green-600">
-                            Active
+                          <Badge variant={user.approved ? "default" : "secondary"}>
+                            {user.approved ? "Approved" : "Pending Approval"}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
+                            {!user.approved && user.role === 'staff' && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => approveUserMutation.mutate(user.user_id)}
+                                  disabled={approveUserMutation.isPending}
+                                  className="text-green-600 hover:text-green-700"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => rejectUserMutation.mutate(user.user_id)}
+                                  disabled={rejectUserMutation.isPending}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
