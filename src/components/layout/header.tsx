@@ -99,7 +99,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
             variant="ghost"
             size="sm"
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            className="hidden md:inline-flex"
+            className="inline-flex"
           >
             {theme === "light" ? "🌙" : "☀️"}
           </Button>
