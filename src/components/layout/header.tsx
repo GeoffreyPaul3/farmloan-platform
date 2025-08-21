@@ -73,8 +73,8 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
                     />
                 </Link>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Farm Manager</h1>
-            <p className="text-xs text-muted-foreground">Loan & Equipment Platform</p>
+            <h1 className="text-xl font-bold text-foreground truncate">Farm Manager</h1>
+            <p className="text-xs text-muted-foreground truncate">Loan & Equipment Platform</p>
           </div>
         </div>
 
