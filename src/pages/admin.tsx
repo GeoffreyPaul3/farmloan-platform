@@ -2,478 +2,643 @@ import { useState } from "react";
 import { DashboardLayout } from "@/layouts/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Users, 
-  UserCheck, 
-  UserX, 
   Shield, 
-  Settings,
-  CheckCircle2,
+  Settings, 
+  Database, 
+  Activity, 
+  AlertTriangle, 
+  CheckCircle, 
   XCircle,
-  Clock,
-  Building2
+  Plus,
+  Edit,
+  Trash2,
+  Download
 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
+import { Navigate } from "react-router-dom";
 
-interface Profile {
-  id: string;
+interface UserProfile {
   user_id: string;
   email: string;
   full_name: string;
+  role: 'admin' | 'staff';
   phone?: string;
-  role: string;
-  approved: boolean;
   created_at: string;
 }
 
-interface ClubAssignment {
+interface UserFormData {
+  email: string;
+  full_name: string;
+  role: 'admin' | 'staff';
+  phone: string;
+}
+
+interface SystemStats {
+  users: number;
+  clubs: number;
+  farmers: number;
+  loans: number;
+  deliveries: number;
+}
+
+interface AuditLog {
   id: string;
+  action: string;
+  table_name: string;
   user_id: string;
-  farmer_group_id: string;
-  assigned_by: string;
   created_at: string;
-  profiles: Profile;
-  farmer_groups: {
-    id: string;
-    name: string;
-    location: string;
-  };
+  record_id: string;
+  old_values: Record<string, unknown>;
+  new_values: Record<string, unknown>;
 }
 
 export default function Admin() {
+  const { user } = useAuth();
+  const [showUserDialog, setShowUserDialog] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [userForm, setUserForm] = useState<UserFormData>({
+    email: "",
+    full_name: "",
+    role: "staff",
+    phone: ""
+  });
   const queryClient = useQueryClient();
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [selectedRole, setSelectedRole] = useState<string>("");
-  const [selectedClubId, setSelectedClubId] = useState<string>("");
-  const [showAssignDialog, setShowAssignDialog] = useState(false);
 
-  // Fetch all users/profiles
-  const { data: profiles, isLoading: profilesLoading } = useQuery({
-    queryKey: ['admin-profiles'],
+  // Check if user is admin
+  const { data: userProfile } = useQuery({
+    queryKey: ["user-profile"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user?.id)
+        .single();
+      return data as UserProfile | null;
+    },
+    enabled: !!user?.id,
+  });
 
+  // Fetch users
+  const { data: users, isLoading } = useQuery({
+    queryKey: ["admin-users"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
+      return (data || []) as UserProfile[];
+    },
+  });
+
+  // Fetch system stats
+  const { data: systemStats } = useQuery({
+    queryKey: ["system-stats"],
+    queryFn: async (): Promise<SystemStats> => {
+      const [usersRes, clubsRes, farmersRes, loansRes, deliveriesRes] = await Promise.all([
+        supabase.from("profiles").select("*", { count: 'exact', head: true }),
+        supabase.from("farmer_groups").select("*", { count: 'exact', head: true }),
+        supabase.from("farmers").select("*", { count: 'exact', head: true }),
+        supabase.from("loans").select("*", { count: 'exact', head: true }),
+        supabase.from("deliveries").select("*", { count: 'exact', head: true }),
+      ]);
+
+      return {
+        users: usersRes.count || 0,
+        clubs: clubsRes.count || 0,
+        farmers: farmersRes.count || 0,
+        loans: loansRes.count || 0,
+        deliveries: deliveriesRes.count || 0,
+      };
+    },
+  });
+
+  // Fetch recent activity
+  const { data: recentActivity } = useQuery({
+    queryKey: ["admin-activity"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("audit_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      return (data || []) as AuditLog[];
+    },
+  });
+
+  // Map user_id -> profile for recent activity
+  const uniqueUserIds = Array.from(new Set((recentActivity || []).map(a => a.user_id)));
+  const { data: activityUsers } = useQuery({
+    queryKey: ["activity-users", uniqueUserIds],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email")
+        .in("user_id", uniqueUserIds);
+      return (data || []) as Pick<UserProfile, 'user_id' | 'full_name' | 'email'>[];
+    },
+    enabled: uniqueUserIds.length > 0,
+  });
+  const userIdToDisplayName: Record<string, string> = (activityUsers || []).reduce((acc, u) => {
+    acc[u.user_id] = u.full_name || u.email || u.user_id;
+    return acc;
+  }, {} as Record<string, string>);
+
+  // User management mutations
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: UserFormData) => {
+      const { error } = await supabase.auth.admin.createUser({
+        email: userData.email,
+        password: "tempPassword123!",
+        email_confirm: true,
+        user_metadata: {
+          full_name: userData.full_name,
+          role: userData.role,
+          phone: userData.phone,
+        }
+      });
       if (error) throw error;
-      return data as Profile[];
+    },
+    onSuccess: () => {
+      toast.success("User created successfully");
+      setShowUserDialog(false);
+      setUserForm({ email: "", full_name: "", role: "staff", phone: "" });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: () => {
+      toast.error("Failed to create user");
     }
   });
 
-  // Fetch farmer groups for assignments
-  const { data: farmerGroups } = useQuery({
-    queryKey: ['admin-farmer-groups'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('farmer_groups')
-        .select('id, name, location')
-        .order('name');
-
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, userData }: { userId: string; userData: UserFormData }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: userData.full_name,
+          role: userData.role,
+          phone: userData.phone,
+        })
+        .eq("user_id", userId);
       if (error) throw error;
-      return data;
+    },
+    onSuccess: () => {
+      toast.success("User updated successfully");
+      setShowUserDialog(false);
+      setEditingUser(null);
+      setUserForm({ email: "", full_name: "", role: "staff", phone: "" });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: () => {
+      toast.error("Failed to update user");
     }
   });
 
-  // Fetch club assignments
-  const { data: assignments } = useQuery({
-    queryKey: ['admin-club-assignments'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('club_assignments')
-        .select(`
-          *,
-          profiles(id, email, full_name, role),
-          farmer_groups(id, name, location)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data as any;
-    }
-  });
-
-  // Approve user mutation
-  const approveUserMutation = useMutation({
+  const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ approved: true })
-        .eq('user_id', userId);
-
+      const { error } = await supabase.auth.admin.deleteUser(userId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
-      toast.success("User approved successfully");
+      toast.success("User deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
-    onError: (error) => {
-      console.error('Error approving user:', error);
-      toast.error("Failed to approve user");
+    onError: () => {
+      toast.error("Failed to delete user");
     }
   });
 
-  // Update role mutation
-  const updateRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: role as any })
-        .eq('user_id', userId);
+  const handleCreateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    createUserMutation.mutate(userForm);
+  };
 
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
-      toast.success("Role updated successfully");
-    },
-    onError: (error) => {
-      console.error('Error updating role:', error);
-      toast.error("Failed to update role");
+  const handleUpdateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingUser) {
+      updateUserMutation.mutate({ userId: editingUser.user_id, userData: userForm });
     }
-  });
+  };
 
-  // Assign to club mutation
-  const assignToClubMutation = useMutation({
-    mutationFn: async ({ userId, farmerGroupId }: { userId: string; farmerGroupId: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
-
-      const { error } = await supabase
-        .from('club_assignments')
-        .insert({
-          user_id: userId,
-          farmer_group_id: farmerGroupId,
-          assigned_by: user.id
-        });
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-club-assignments'] });
-      setShowAssignDialog(false);
-      setSelectedUserId(null);
-      setSelectedClubId("");
-      toast.success("User assigned to club successfully");
-    },
-    onError: (error) => {
-      console.error('Error assigning user to club:', error);
-      toast.error("Failed to assign user to club");
-    }
-  });
-
-  const handleAssignToClub = () => {
-    if (!selectedUserId || !selectedClubId) return;
-    assignToClubMutation.mutate({ 
-      userId: selectedUserId, 
-      farmerGroupId: selectedClubId 
+  const handleEditUser = (user: UserProfile) => {
+    setEditingUser(user);
+    setUserForm({
+      email: user.email,
+      full_name: user.full_name,
+      role: user.role,
+      phone: user.phone || ""
     });
+    setShowUserDialog(true);
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      case 'manager':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      default:
-        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+  const handleDeleteUser = (userId: string) => {
+    if (confirm("Are you sure you want to delete this user?")) {
+      deleteUserMutation.mutate(userId);
     }
   };
 
-  const getStatusColor = (approved: boolean) => {
-    return approved 
-      ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-      : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+  const exportData = async (tableName: 'farmers' | 'farmer_groups' | 'loans' | 'deliveries') => {
+    try {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select("*");
+      
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast.error("No data to export");
+        return;
+      }
+
+      const csvContent = "data:text/csv;charset=utf-8," + 
+        Object.keys(data[0]).join(",") + "\n" +
+        data.map(row => Object.values(row).join(",")).join("\n");
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `${tableName}_export.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(`${tableName} data exported successfully`);
+    } catch {
+      toast.error("Failed to export data");
+    }
   };
 
-  const pendingApprovals = profiles?.filter(p => !p.approved).length || 0;
-  const totalUsers = profiles?.length || 0;
-  const totalAssignments = assignments?.length || 0;
+  // Redirect if not admin
+  if (userProfile?.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 w-48 bg-muted rounded"></div>
+            <div className="h-64 bg-muted rounded"></div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
-            <p className="text-muted-foreground mt-2">
-              Manage users, roles, and system settings
-            </p>
+            <h1 className="text-3xl font-bold text-foreground">System Administration</h1>
+            <p className="text-muted-foreground">Manage users, monitor system activity, and configure settings</p>
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
+        {/* System Overview Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium leading-none">Total Users</p>
-                  <p className="text-2xl font-bold">{totalUsers}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{systemStats?.users}</div>
+              <p className="text-xs text-muted-foreground">
+                Active system users
+              </p>
             </CardContent>
           </Card>
-          
+
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-2">
-                <Clock className="h-4 w-4 text-yellow-600" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium leading-none">Pending Approvals</p>
-                  <p className="text-2xl font-bold text-yellow-600">{pendingApprovals}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Farmer Groups</CardTitle>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{systemStats?.clubs}</div>
+              <p className="text-xs text-muted-foreground">
+                Registered groups
+              </p>
             </CardContent>
           </Card>
-          
+
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium leading-none">Club Assignments</p>
-                  <p className="text-2xl font-bold">{totalAssignments}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Farmers</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{systemStats?.farmers}</div>
+              <p className="text-xs text-muted-foreground">
+                Registered farmers
+              </p>
             </CardContent>
           </Card>
-          
+
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-2">
-                <Shield className="h-4 w-4 text-green-600" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium leading-none">Active Users</p>
-                  <p className="text-2xl font-bold text-green-600">{totalUsers - pendingApprovals}</p>
-                </div>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Loans</CardTitle>
+              <Database className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{systemStats?.loans}</div>
+              <p className="text-xs text-muted-foreground">
+                Total loans
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Deliveries</CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{systemStats?.deliveries}</div>
+              <p className="text-xs text-muted-foreground">
+                Processed deliveries
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        <Tabs defaultValue="users" className="space-y-4">
+        <Tabs defaultValue="users" className="space-y-6">
           <TabsList>
             <TabsTrigger value="users">User Management</TabsTrigger>
-            <TabsTrigger value="assignments">Club Assignments</TabsTrigger>
+            <TabsTrigger value="activity">System Activity</TabsTrigger>
+            <TabsTrigger value="data">Data Management</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="users" className="space-y-4">
+          {/* User Management Tab */}
+          <TabsContent value="users" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>User Management</CardTitle>
-                <CardDescription>
-                  Approve users and manage their roles and permissions
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>User Management</CardTitle>
+                    <CardDescription>Manage system users and their permissions</CardDescription>
+                  </div>
+                  <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
+                    <DialogTrigger asChild>
+                      <Button onClick={() => {
+                        setEditingUser(null);
+                        setUserForm({ email: "", full_name: "", role: "staff", phone: "" });
+                      }}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add User
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>
+                          {editingUser ? "Edit User" : "Create New User"}
+                        </DialogTitle>
+                        <DialogDescription>
+                          {editingUser ? "Update user information" : "Add a new user to the system"}
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={userForm.email}
+                            onChange={(e) => setUserForm(prev => ({ ...prev, email: e.target.value }))}
+                            disabled={!!editingUser}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="fullName">Full Name</Label>
+                          <Input
+                            id="fullName"
+                            type="text"
+                            value={userForm.full_name}
+                            onChange={(e) => setUserForm(prev => ({ ...prev, full_name: e.target.value }))}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="phone">Phone</Label>
+                          <Input
+                            id="phone"
+                            type="tel"
+                            value={userForm.phone}
+                            onChange={(e) => setUserForm(prev => ({ ...prev, phone: e.target.value }))}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="role">Role</Label>
+                          <Select
+                            value={userForm.role}
+                            onValueChange={(value: 'admin' | 'staff') => setUserForm(prev => ({ ...prev, role: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="staff">Staff</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="flex gap-2 justify-end">
+                          <Button type="button" variant="outline" onClick={() => setShowUserDialog(false)}>
+                            Cancel
+                          </Button>
+                          <Button type="submit">
+                            {editingUser ? "Update User" : "Create User"}
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent>
-                {profilesLoading ? (
-                  <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  </div>
-                ) : profiles && profiles.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {profiles.map((profile) => (
-                        <TableRow key={profile.id}>
-                          <TableCell>
-                            <div className="font-medium">{profile.full_name}</div>
-                            {profile.phone && (
-                              <div className="text-sm text-muted-foreground">{profile.phone}</div>
-                            )}
-                          </TableCell>
-                          <TableCell>{profile.email}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Badge className={getRoleColor(profile.role)}>
-                                {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
-                              </Badge>
-                              <Select
-                                value={profile.role}
-                                onValueChange={(value) => 
-                                  updateRoleMutation.mutate({ 
-                                    userId: profile.user_id, 
-                                    role: value 
-                                  })
-                                }
-                              >
-                                <SelectTrigger className="w-24 h-6 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="staff">Staff</SelectItem>
-                                  <SelectItem value="manager">Manager</SelectItem>
-                                  <SelectItem value="admin">Admin</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={getStatusColor(profile.approved)}>
-                              {profile.approved ? (
-                                <>
-                                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                                  Approved
-                                </>
-                              ) : (
-                                <>
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Pending
-                                </>
-                              )}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {!profile.approved && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => approveUserMutation.mutate(profile.user_id)}
-                                  disabled={approveUserMutation.isPending}
-                                >
-                                  <UserCheck className="h-3 w-3 mr-1" />
-                                  Approve
-                                </Button>
-                              )}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users?.map((user) => (
+                      <TableRow key={user.user_id}>
+                        <TableCell>{user.full_name}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                            {user.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{user.phone || '-'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-green-600">
+                            Active
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditUser(user)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            {user.user_id !== userProfile?.user_id && (
                               <Button
+                                variant="ghost"
                                 size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedUserId(profile.user_id);
-                                  setShowAssignDialog(true);
-                                }}
+                                onClick={() => handleDeleteUser(user.user_id)}
                               >
-                                <Building2 className="h-3 w-3 mr-1" />
-                                Assign Club
+                                <Trash2 className="h-4 w-4" />
                               </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No users found
-                  </div>
-                )}
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="assignments" className="space-y-4">
+          {/* System Activity Tab */}
+          <TabsContent value="activity" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Club Assignments</CardTitle>
-                <CardDescription>
-                  View and manage user assignments to farmer clubs
-                </CardDescription>
+                <CardTitle>Recent System Activity</CardTitle>
+                <CardDescription>Monitor recent changes and user actions</CardDescription>
               </CardHeader>
               <CardContent>
-                {assignments && assignments.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Club</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Assigned Date</TableHead>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Table</TableHead>
+                      <TableHead>User</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentActivity?.map((activity) => (
+                      <TableRow key={activity.id}>
+                        <TableCell>
+                          {new Date(activity.created_at).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            activity.action === 'INSERT' ? 'default' :
+                            activity.action === 'UPDATE' ? 'secondary' : 'destructive'
+                          }>
+                            {activity.action}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{activity.table_name}</TableCell>
+                        <TableCell>{userIdToDisplayName[activity.user_id] || activity.user_id}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {assignments?.map((assignment: any) => (
-                        <TableRow key={assignment.id}>
-                          <TableCell>
-                            <div className="font-medium">{assignment.profiles?.full_name || 'Unknown'}</div>
-                            <div className="text-sm text-muted-foreground">{assignment.profiles?.email || 'Unknown'}</div>
-                          </TableCell>
-                          <TableCell className="font-medium">{assignment.farmer_groups?.name || 'Unknown'}</TableCell>
-                          <TableCell>{assignment.farmer_groups?.location || 'Unknown'}</TableCell>
-                          <TableCell>
-                            <Badge className={getRoleColor(assignment.profiles?.role || 'staff')}>
-                              {(assignment.profiles?.role || 'staff').charAt(0).toUpperCase() + (assignment.profiles?.role || 'staff').slice(1)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{new Date(assignment.created_at).toLocaleDateString()}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No club assignments found
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Data Management Tab */}
+          <TabsContent value="data" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Data Management</CardTitle>
+                <CardDescription>Export data and manage system information</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">Export Data</h3>
+                    <div className="space-y-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => exportData('farmers')}
+                        className="w-full justify-start"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Farmers
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => exportData('farmer_groups')}
+                        className="w-full justify-start"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Clubs
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => exportData('loans')}
+                        className="w-full justify-start"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Loans
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => exportData('deliveries')}
+                        className="w-full justify-start"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Deliveries
+                      </Button>
+                    </div>
                   </div>
-                )}
+                  
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">System Information</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Database Size:</span>
+                        <span className="text-muted-foreground">Calculating...</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Storage Used:</span>
+                        <span className="text-muted-foreground">Calculating...</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Last Backup:</span>
+                        <span className="text-muted-foreground">Not configured</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
-
-        {/* Assign to Club Dialog */}
-        <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Assign User to Club</DialogTitle>
-              <DialogDescription>
-                Select a farmer club to assign the user to
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="club">Select Club</Label>
-                <Select value={selectedClubId} onValueChange={setSelectedClubId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a club..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {farmerGroups?.map((group) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.name} - {group.location}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  onClick={handleAssignToClub}
-                  disabled={!selectedClubId || assignToClubMutation.isPending}
-                  className="flex-1"
-                >
-                  {assignToClubMutation.isPending ? "Assigning..." : "Assign"}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowAssignDialog(false)}
-                  disabled={assignToClubMutation.isPending}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </DashboardLayout>
   );

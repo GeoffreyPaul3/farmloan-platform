@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/farm-logo.png"
 
 export default function AuthPage() {
@@ -27,6 +28,7 @@ export default function AuthPage() {
     fullName: "",
     role: "staff" as 'admin' | 'staff'
   });
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
 
   // Redirect if already authenticated
   if (user) {
@@ -98,6 +100,39 @@ export default function AuthPage() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
+        redirectTo: `${window.location.origin}/auth?tab=reset-password`,
+      });
+      
+      if (error) {
+        toast({
+          title: "Password Reset Failed",
+          description: error.message || "Unable to send reset email",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Reset Email Sent!",
+          description: "Please check your email for password reset instructions.",
+        });
+        setForgotPasswordEmail("");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background p-4">
       {/* Background Pattern */}
@@ -143,9 +178,10 @@ export default function AuthPage() {
           
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsList className="grid w-full grid-cols-3 mb-6">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Register</TabsTrigger>
+                <TabsTrigger value="forgot">Reset</TabsTrigger>
               </TabsList>
               
               {/* Sign In Tab */}
@@ -288,6 +324,48 @@ export default function AuthPage() {
                       </>
                     ) : (
                       "Create Account"
+                    )}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              {/* Forgot Password Tab */}
+              <TabsContent value="forgot" className="space-y-4">
+                <div className="text-center space-y-2">
+                  <Mail className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <h3 className="text-lg font-semibold">Reset Your Password</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Enter your email address and we'll send you a link to reset your password.
+                  </p>
+                </div>
+                
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="resetEmail">Email Address</Label>
+                    <Input
+                      id="resetEmail"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={forgotPasswordEmail}
+                      onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                      className="input-enterprise"
+                      required
+                    />
+                  </div>
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    variant="enterprise"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending reset email...
+                      </>
+                    ) : (
+                      "Send Reset Email"
                     )}
                   </Button>
                 </form>

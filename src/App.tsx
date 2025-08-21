@@ -19,6 +19,8 @@ import Equipment from "./pages/equipment";
 import Uploads from "./pages/uploads";
 import Audit from "./pages/audit";
 import Reports from "./pages/reports";
+import Admin from "./pages/admin";
+import Profile from "./pages/profile";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,8 @@ function App() {
                 <Route path="/uploads" element={<Uploads />} />
                 <Route path="/audit" element={<Audit />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/profile" element={<Profile />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AuthProvider>

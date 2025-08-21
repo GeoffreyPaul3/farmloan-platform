@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { Header } from "@/components/layout/header";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -10,6 +11,31 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, loading } = useAuth();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Handle responsive behavior
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setMobileSidebarOpen(false);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const handleMobileMenuToggle = () => {
+    setMobileSidebarOpen(!mobileSidebarOpen);
+  };
+
+  const handleMobileClose = () => {
+    setMobileSidebarOpen(false);
+  };
 
   if (loading) {
     return (
@@ -28,10 +54,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header onMobileMenuToggle={handleMobileMenuToggle} />
       <div className="flex h-[calc(100vh-4rem)]">
-        <Sidebar />
-        <main className="flex-1 overflow-auto">
+        <Sidebar 
+          mobileOpen={mobileSidebarOpen}
+          onMobileClose={handleMobileClose}
+          isMobile={isMobile}
+        />
+        <main className="flex-1 overflow-auto md:ml-0">
           {children}
         </main>
       </div>

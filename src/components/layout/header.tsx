@@ -1,4 +1,4 @@
-import { Bell, Search, User, LogOut } from "lucide-react";
+import { Search, User, LogOut, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,13 +9,17 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/components/ui/theme-provider";
 import { Link } from "react-router-dom";
+import { NotificationsPanel } from "@/components/notifications/notifications-panel";
 import logo from "@/assets/farm-logo.png"
 
-export function Header() {
+interface HeaderProps {
+  onMobileMenuToggle?: () => void;
+}
+
+export function Header({ onMobileMenuToggle }: HeaderProps) {
   const { user, signOut } = useAuth();
   const { setTheme, theme } = useTheme();
 
@@ -56,15 +60,7 @@ export function Header() {
         {/* User Actions */}
         <div className="flex items-center gap-3">
           {/* Notifications */}
-          <Button variant="ghost" size="sm" className="relative">
-            <Bell className="h-5 w-5" />
-            <Badge 
-              variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-            >
-              3
-            </Badge>
-          </Button>
+          <NotificationsPanel />
 
           {/* Theme Toggle */}
           <Button
@@ -96,9 +92,11 @@ export function Header() {
                 </div>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
-                Profile Settings
+              <DropdownMenuItem className="cursor-pointer" asChild>
+                <Link to="/profile">
+                  <User className="mr-2 h-4 w-4" />
+                  Profile Settings
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem 
                 className="cursor-pointer text-destructive focus:text-destructive"
@@ -109,6 +107,17 @@ export function Header() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Mobile Menu Button - positioned at the very end */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onMobileMenuToggle}
+            className="md:hidden h-10 w-10 p-0"
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
         </div>
       </div>
     </header>
