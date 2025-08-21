@@ -60,8 +60,8 @@ export default function Inputs() {
         .select(`
           *,
           input_items(name, unit, category),
-          farmer_groups(name),
-          farmers(full_name),
+          farmer_groups!input_distributions_farmer_group_id_fkey(name),
+          farmers!input_distributions_farmer_id_fkey(full_name),
           seasons(name)
         `)
         .order("distribution_date", { ascending: false });

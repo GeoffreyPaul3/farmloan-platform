@@ -27,8 +27,8 @@ export default function FieldVisits() {
         .from("field_visits")
         .select(`
           *,
-          farmers(full_name),
-          farmer_groups(name),
+          farmers!field_visits_farmer_id_fkey(full_name),
+          farmer_groups!field_visits_farmer_group_id_fkey(name),
           seasons(name)
         `)
         .order("visit_date", { ascending: false });
@@ -97,7 +97,7 @@ export default function FieldVisits() {
         farmer_group_id: farmer?.farmer_group_id,
         season_id: formData.get("season_id") as string || null,
         visit_date: formData.get("visit_date") as string,
-        crop_stage: formData.get("crop_stage") as string,
+        crop_stage: formData.get("crop_stage") as "sowing" | "vegetative" | "flowering" | "boll_formation" | "maturity" | "harvest",
         observations: formData.get("observations") as string,
         expected_yield: parseFloat(formData.get("expected_yield") as string) || null,
         gps_lat: gpsLocation?.lat,

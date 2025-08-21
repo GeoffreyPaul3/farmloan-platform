@@ -27,8 +27,8 @@ export default function Deliveries() {
         .from("deliveries")
         .select(`
           *,
-          farmers(full_name),
-          farmer_groups(name),
+          farmers!deliveries_farmer_id_fkey(full_name),
+          farmer_groups!deliveries_farmer_group_id_fkey(name),
           seasons(name)
         `)
         .order("delivery_date", { ascending: false });
@@ -84,18 +84,19 @@ export default function Deliveries() {
     try {
       const farmerId = formData.get("farmer_id") as string;
       const farmer = farmers?.find(f => f.id === farmerId);
+      const weight = parseFloat(formData.get("weight") as string);
+      const price_per_kg = parseFloat(formData.get("price_per_kg") as string);
       
       const deliveryData = {
         farmer_id: farmerId,
         farmer_group_id: farmer?.farmer_group_id,
         season_id: formData.get("season_id") as string || null,
-        weight: parseFloat(formData.get("weight") as string),
-        price_per_kg: parseFloat(formData.get("price_per_kg") as string),
+        weight,
+        price_per_kg,
+        gross_amount: weight * price_per_kg,
         delivery_date: formData.get("delivery_date") as string,
         officer_id: (await supabase.auth.getUser()).data.user?.id
       };
-
-      deliveryData.gross_amount = deliveryData.weight * deliveryData.price_per_kg;
 
       const { error } = await supabase
         .from("deliveries")

@@ -19,8 +19,8 @@ export default function Payments() {
           *,
           deliveries(
             *,
-            farmers(full_name),
-            farmer_groups(name)
+            farmers!deliveries_farmer_id_fkey(full_name),
+            farmer_groups!deliveries_farmer_group_id_fkey(name)
           )
         `)
         .order("created_at", { ascending: false });
@@ -37,8 +37,8 @@ export default function Payments() {
         .from("loan_ledgers")
         .select(`
           *,
-          farmers(full_name),
-          loans(amount, loan_type),
+          farmers!loan_ledgers_farmer_id_fkey(full_name),
+          loans!loan_ledgers_loan_id_fkey(amount, loan_type),
           seasons(name)
         `)
         .order("created_at", { ascending: false });

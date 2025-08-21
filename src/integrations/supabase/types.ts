@@ -119,6 +119,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "deliveries_farmer_group_id_fkey"
+            columns: ["farmer_group_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "deliveries_season_id_fkey"
             columns: ["season_id"]
             isOneToOne: false
@@ -447,6 +461,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "field_visits_farmer_group_id_fkey"
+            columns: ["farmer_group_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "field_visits_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "field_visits_season_id_fkey"
             columns: ["season_id"]
             isOneToOne: false
@@ -575,6 +603,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "input_distributions_farmer_group_id_fkey"
+            columns: ["farmer_group_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "input_distributions_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "input_distributions_item_id_fkey"
             columns: ["item_id"]
@@ -726,6 +768,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "loan_ledgers_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_ledgers_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "loan_ledgers_season_id_fkey"
             columns: ["season_id"]
             isOneToOne: false
@@ -845,6 +901,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          approved: boolean
           avatar_url: string | null
           created_at: string
           email: string
@@ -856,6 +913,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          approved?: boolean
           avatar_url?: string | null
           created_at?: string
           email: string
@@ -867,6 +925,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          approved?: boolean
           avatar_url?: string | null
           created_at?: string
           email?: string
