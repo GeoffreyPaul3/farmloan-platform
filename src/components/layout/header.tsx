@@ -13,23 +13,55 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/components/ui/theme-provider";
 import { Link } from "react-router-dom";
 import { NotificationsPanel } from "@/components/notifications/notifications-panel";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/farm-logo.png"
 
 interface HeaderProps {
   onMobileMenuToggle?: () => void;
 }
 
+interface UserProfile {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: 'admin' | 'staff';
+  avatar_url?: string;
+}
+
 export function Header({ onMobileMenuToggle }: HeaderProps) {
   const { user, signOut } = useAuth();
   const { setTheme, theme } = useTheme();
+
+  // Fetch user profile data
+  const { data: userProfile } = useQuery({
+    queryKey: ["user-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+      
+      if (error) throw error;
+      return data as UserProfile;
+    },
+    enabled: !!user?.id,
+  });
 
   const handleSignOut = async () => {
     await signOut();
   };
 
+  // Get display name and role
+  const displayName = userProfile?.full_name || user?.email || "User";
+  const userRole = userProfile?.role || "staff";
+  const roleDisplay = userRole === 'admin' ? 'Administrator' : 'Staff Member';
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between px-6">
+      <div className="flex h-16 items-center justify-between px-6">
         {/* Logo and Title */}
         <div className="flex items-center gap-3">
            <Link to="/" >
@@ -77,9 +109,9 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10 border-2 border-border">
-                  <AvatarImage src="" alt="User" />
+                  <AvatarImage src={userProfile?.avatar_url || ""} alt="User" />
                   <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
-                    {user?.email?.charAt(0).toUpperCase() || "U"}
+                    {displayName.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -87,8 +119,8 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
             <DropdownMenuContent className="w-56" align="end">
               <div className="flex items-center justify-start gap-2 p-2">
                 <div className="flex flex-col space-y-1 leading-none">
-                  <p className="font-medium">{user?.email}</p>
-                  <p className="text-xs text-muted-foreground">Administrator</p>
+                  <p className="font-medium">{displayName}</p>
+                  <p className="text-xs text-muted-foreground">{roleDisplay}</p>
                 </div>
               </div>
               <DropdownMenuSeparator />

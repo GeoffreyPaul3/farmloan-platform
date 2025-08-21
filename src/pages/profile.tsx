@@ -120,7 +120,15 @@ export default function Profile() {
     if (!file) return;
 
     try {
-      const fileName = `avatars/${user?.id}/${Date.now()}_${file.name}`;
+      // Sanitize filename - remove spaces and special characters
+      const fileExtension = file.name.split('.').pop();
+      const sanitizedName = file.name
+        .replace(/\.[^/.]+$/, '') // Remove extension
+        .replace(/[^a-zA-Z0-9]/g, '_') // Replace special chars with underscore
+        .replace(/_+/g, '_') // Replace multiple underscores with single
+        .toLowerCase();
+      
+      const fileName = `${user?.id}/${Date.now()}_${sanitizedName}.${fileExtension}`;
       
       const { error: uploadError } = await supabase.storage
         .from('avatars')
@@ -135,6 +143,7 @@ export default function Profile() {
       await updateProfileMutation.mutateAsync({ avatar_url: publicUrl });
       toast.success("Avatar updated successfully");
     } catch (error) {
+      console.error("Avatar upload error:", error);
       toast.error("Failed to upload avatar");
     }
   };

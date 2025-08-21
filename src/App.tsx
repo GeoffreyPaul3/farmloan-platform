@@ -21,6 +21,7 @@ import Audit from "./pages/audit";
 import Reports from "./pages/reports";
 import Admin from "./pages/admin";
 import Profile from "./pages/profile";
+import AuditTrail from "./pages/audit-trail";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,7 @@ function App() {
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/audit-trail" element={<AuditTrail />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AuthProvider>

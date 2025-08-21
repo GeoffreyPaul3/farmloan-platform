@@ -13,6 +13,8 @@ import { Upload, FileText, Users, TrendingUp, Download, AlertTriangle, CheckCirc
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { UploadHistoryDialog } from "@/components/upload-history-dialog";
+import { useAuth } from "@/hooks/use-auth";
 
 interface CSVRow {
   full_name: string;
@@ -54,8 +56,10 @@ const parseCSV = (csvText: string): CSVRow[] => {
 };
 
 export default function Uploads() {
+  const { user } = useAuth();
   const [showFarmerUpload, setShowFarmerUpload] = useState(false);
   const [showContractUpload, setShowContractUpload] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [csvData, setCsvData] = useState<CSVRow[]>([]);
@@ -81,10 +85,75 @@ export default function Uploads() {
     },
   });
 
+  // Create upload history record
+  const createUploadHistory = async (uploadData: {
+    upload_type: 'farmers' | 'contracts' | 'loans' | 'equipment';
+    file_name: string;
+    file_size: number;
+    total_records: number;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+  }) => {
+    const { data, error } = await supabase
+      .from("upload_history")
+      .insert([{
+        user_id: user?.id,
+        ...uploadData,
+        successful_records: 0,
+        failed_records: 0,
+        error_details: null,
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Failed to create upload history:", error);
+      return null;
+    }
+
+    return data;
+  };
+
+  // Update upload history record
+  const updateUploadHistory = async (historyId: string, updateData: {
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    successful_records?: number;
+    failed_records?: number;
+    error_details?: any;
+    completed_at?: string;
+  }) => {
+    const { error } = await supabase
+      .from("upload_history")
+      .update({
+        ...updateData,
+        completed_at: updateData.completed_at || new Date().toISOString(),
+      })
+      .eq("id", historyId);
+
+    if (error) {
+      console.error("Failed to update upload history:", error);
+    }
+  };
+
   // Upload mutation
   const uploadMutation = useMutation({
     mutationFn: async (data: CSVRow[]) => {
       const results: UploadResult = { success: 0, errors: [], total: data.length };
+      
+      // Create upload history record
+      const historyRecord = await createUploadHistory({
+        upload_type: 'farmers',
+        file_name: selectedFile?.name || 'unknown.csv',
+        file_size: selectedFile?.size || 0,
+        total_records: data.length,
+        status: 'processing',
+      });
+
+      if (!historyRecord) {
+        throw new Error("Failed to create upload history record");
+      }
+
+      // Update status to processing
+      await updateUploadHistory(historyRecord.id, { status: 'processing' });
       
       for (let i = 0; i < data.length; i++) {
         try {
@@ -123,7 +192,7 @@ export default function Uploads() {
             date_of_birth: row.date_of_birth || null,
             farm_size_acres: row.farm_size_acres || null,
             farmer_group_id: row.farmer_group_id,
-            created_by: (await supabase.auth.getUser()).data.user?.id
+            created_by: user?.id
           }]);
 
           if (error) {
@@ -139,6 +208,14 @@ export default function Uploads() {
         }
       }
 
+      // Update upload history with results
+      await updateUploadHistory(historyRecord.id, {
+        status: results.errors.length === 0 ? 'completed' : 'completed',
+        successful_records: results.success,
+        failed_records: results.errors.length,
+        error_details: results.errors.length > 0 ? results.errors : null,
+      });
+
       return results;
     },
     onSuccess: (results) => {
@@ -146,6 +223,7 @@ export default function Uploads() {
         toast.success(`Successfully uploaded ${results.success} farmers`);
         queryClient.invalidateQueries({ queryKey: ["existing-farmers"] });
         queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+        queryClient.invalidateQueries({ queryKey: ["upload-history", user?.id] });
       }
       if (results.errors.length > 0) {
         toast.error(`${results.errors.length} errors occurred during upload`);
@@ -165,13 +243,39 @@ export default function Uploads() {
   // Contract upload mutation
   const contractUploadMutation = useMutation({
     mutationFn: async (file: File) => {
+      // Create upload history record
+      const historyRecord = await createUploadHistory({
+        upload_type: 'contracts',
+        file_name: file.name,
+        file_size: file.size,
+        total_records: 1,
+        status: 'processing',
+      });
+
+      if (!historyRecord) {
+        throw new Error("Failed to create upload history record");
+      }
+
       const fileName = `contracts/${Date.now()}_${file.name}`;
       
       const { error: uploadError } = await supabase.storage
         .from('contracts')
         .upload(fileName, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        await updateUploadHistory(historyRecord.id, {
+          status: 'failed',
+          error_details: [uploadError.message],
+        });
+        throw uploadError;
+      }
+
+      // Update upload history as successful
+      await updateUploadHistory(historyRecord.id, {
+        status: 'completed',
+        successful_records: 1,
+        failed_records: 0,
+      });
 
       return fileName;
     },
@@ -179,6 +283,7 @@ export default function Uploads() {
       toast.success("Contract uploaded successfully");
       setShowContractUpload(false);
       setContractFile(null);
+      queryClient.invalidateQueries({ queryKey: ["upload-history", user?.id] });
     },
     onError: (error) => {
       toast.error("Contract upload failed");
@@ -355,7 +460,11 @@ export default function Uploads() {
                 <p className="text-sm text-muted-foreground">
                   View recent uploads, success rates, and any errors that occurred during the process.
                 </p>
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowHistory(true)}
+                  className="w-full"
+                >
                   View History
                 </Button>
               </div>
@@ -510,6 +619,9 @@ export default function Uploads() {
           </DialogContent>
         </Dialog>
 
+        {/* Upload History Dialog */}
+        <UploadHistoryDialog open={showHistory} onOpenChange={setShowHistory} />
+
         <Card>
           <CardHeader>
             <CardTitle>Upload Guidelines</CardTitle>
@@ -535,7 +647,7 @@ export default function Uploads() {
                   <li>• Preview screen shows potential issues</li>
                   <li>• Duplicate records are flagged</li>
                   <li>• Invalid data is highlighted for correction</li>
-                  <li>• Rollback available if needed</li>
+                  <li>• Upload history tracks all activities</li>
                 </ul>
               </div>
             </div>

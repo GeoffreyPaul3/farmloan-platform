@@ -82,7 +82,7 @@ const navigation = [
   },
   {
     name: "Audit Logs",
-    href: "/audit",
+    href: "/audit-trail",
     icon: Shield,
     description: "System Activity"
   },
