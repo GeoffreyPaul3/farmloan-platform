@@ -10,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Package, TrendingDown, Users, AlertTriangle, Edit } from "lucide-react";
-import { useState } from "react";
+import { Plus, Package, TrendingDown, Users, AlertTriangle, Edit, DollarSign } from "lucide-react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -20,6 +20,7 @@ import { toast } from "sonner";
 export default function Inputs() {
   const [showStockDialog, setShowStockDialog] = useState(false);
   const [showDistributionDialog, setShowDistributionDialog] = useState(false);
+  const [showCashPaymentDialog, setShowCashPaymentDialog] = useState(false);
   const [showItemDialog, setShowItemDialog] = useState(false);
   const [showEditItemDialog, setShowEditItemDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -54,6 +55,19 @@ export default function Inputs() {
     },
   });
 
+  // Calculate available stock levels for each item
+  const availableStock = useMemo(() => {
+    const stockMap = new Map();
+    if (inputStock) {
+      inputStock.forEach(stock => {
+        const itemId = stock.item_id;
+        const currentStock = stockMap.get(itemId) || 0;
+        stockMap.set(itemId, currentStock + stock.quantity);
+      });
+    }
+    return stockMap;
+  }, [inputStock]);
+
   const { data: inputDistributions, refetch: refetchDistributions } = useQuery({
     queryKey: ["input-distributions"],
     queryFn: async () => {
@@ -67,6 +81,24 @@ export default function Inputs() {
           seasons(name)
         `)
         .order("distribution_date", { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: cashPayments, refetch: refetchCashPayments } = useQuery({
+    queryKey: ["cash-payments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cash_payments")
+        .select(`
+          *,
+          farmer_groups!cash_payments_farmer_group_id_fkey(name),
+          farmers!cash_payments_farmer_id_fkey(full_name),
+          seasons(name)
+        `)
+        .order("payment_date", { ascending: false });
       
       if (error) throw error;
       return data;
@@ -210,12 +242,22 @@ export default function Inputs() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
+    const itemId = formData.get("item_id") as string;
+    const quantity = parseFloat(formData.get("quantity") as string);
+    
+    // Check stock availability before proceeding
+    const availableQuantity = availableStock.get(itemId) || 0;
+    if (quantity > availableQuantity) {
+      toast.error(`Insufficient stock. Available: ${availableQuantity.toFixed(1)} units`);
+      return;
+    }
+    
     try {
       const distributionData = {
-        item_id: formData.get("item_id") as string,
+        item_id: itemId,
         farmer_group_id: formData.get("farmer_group_id") as string,
         farmer_id: formData.get("farmer_id") as string || null,
-        quantity: parseFloat(formData.get("quantity") as string),
+        quantity: quantity,
         season_id: formData.get("season_id") as string || null,
         distribution_date: formData.get("distribution_date") as string,
         notes: formData.get("notes") as string || null,
@@ -228,18 +270,58 @@ export default function Inputs() {
 
       if (error) throw error;
 
-      toast.success("Distribution recorded successfully!");
+      toast.success("Distribution recorded successfully! Loan created automatically.");
       setShowDistributionDialog(false);
       refetchDistributions();
+      refetchStock();
     } catch (error) {
       console.error("Error recording distribution:", error);
       toast.error("Failed to record distribution");
     }
   };
 
+  const handleRecordCashPayment = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const paymentData = {
+        farmer_group_id: formData.get("farmer_group_id") as string,
+        farmer_id: formData.get("farmer_id") as string || null,
+        amount: parseFloat(formData.get("amount") as string),
+        payment_type: formData.get("payment_type") as string,
+        payment_method: formData.get("payment_method") as string,
+        bank_details: formData.get("bank_details") as string || null,
+        season_id: formData.get("season_id") as string || null,
+        payment_date: formData.get("payment_date") as string,
+        purpose: formData.get("purpose") as string,
+        notes: formData.get("notes") as string || null,
+        created_by: (await supabase.auth.getUser()).data.user?.id
+      };
+
+      const { error } = await supabase
+        .from("cash_payments")
+        .insert([paymentData]);
+
+      if (error) throw error;
+
+      const successMessage = paymentData.payment_type === 'loan' 
+        ? "Cash payment recorded successfully! Loan created automatically."
+        : "Cash payment recorded successfully!";
+      
+      toast.success(successMessage);
+      setShowCashPaymentDialog(false);
+      refetchCashPayments();
+    } catch (error) {
+      console.error("Error recording cash payment:", error);
+      toast.error("Failed to record cash payment");
+    }
+  };
+
   const totalStock = inputStock?.reduce((sum, s) => sum + s.quantity, 0) || 0;
   const totalValue = inputStock?.reduce((sum, s) => sum + (s.quantity * (s.unit_cost || 0)), 0) || 0;
   const totalDistributed = inputDistributions?.reduce((sum, d) => sum + d.quantity, 0) || 0;
+  const totalCashPayments = cashPayments?.reduce((sum, p) => sum + p.amount, 0) || 0;
 
   return (
     <DashboardLayout>
@@ -431,7 +513,7 @@ export default function Inputs() {
                     <Input name="quantity" type="number" step="0.1" required placeholder="Enter quantity" />
                   </div>
                   <div>
-                    <Label htmlFor="unit_cost">Unit Cost ($)</Label>
+                    <Label htmlFor="unit_cost">Unit Cost (MWK)</Label>
                     <Input name="unit_cost" type="number" step="0.01" placeholder="Cost per unit" />
                   </div>
                   <div>
@@ -478,13 +560,13 @@ export default function Inputs() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium">Items in Catalog</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{inputItems?.length || 0}</div>
+              <div className="text-xl sm:text-2xl font-bold break-words">{inputItems?.length || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -492,7 +574,7 @@ export default function Inputs() {
               <CardTitle className="text-sm font-medium">Total Stock Units</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalStock.toFixed(1)}</div>
+              <div className="text-xl sm:text-2xl font-bold break-words">{totalStock.toFixed(1)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -500,7 +582,7 @@ export default function Inputs() {
               <CardTitle className="text-sm font-medium">Stock Value</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalValue.toFixed(2)}</div>
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold break-words">MWK {totalValue.toFixed(2)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -508,7 +590,15 @@ export default function Inputs() {
               <CardTitle className="text-sm font-medium">Distributed</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalDistributed.toFixed(1)}</div>
+              <div className="text-xl sm:text-2xl font-bold break-words">{totalDistributed.toFixed(1)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Cash Payments</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold break-words">MWK {totalCashPayments.toFixed(2)}</div>
             </CardContent>
           </Card>
         </div>
@@ -517,6 +607,7 @@ export default function Inputs() {
           <TabsList>
             <TabsTrigger value="stock">Stock Levels</TabsTrigger>
             <TabsTrigger value="distributions">Distributions</TabsTrigger>
+            <TabsTrigger value="cash-payments">Cash Payments</TabsTrigger>
             <TabsTrigger value="items">Item Catalog</TabsTrigger>
           </TabsList>
           
@@ -548,8 +639,8 @@ export default function Inputs() {
                             <Badge variant="outline">{stock.input_items?.category}</Badge>
                           </TableCell>
                           <TableCell>{stock.quantity} {stock.input_items?.unit}</TableCell>
-                          <TableCell>${stock.unit_cost?.toFixed(2) || '0.00'}</TableCell>
-                          <TableCell>${((stock.quantity || 0) * (stock.unit_cost || 0)).toFixed(2)}</TableCell>
+                          <TableCell>MWK {stock.unit_cost?.toFixed(2) || '0.00'}</TableCell>
+                          <TableCell>MWK {((stock.quantity || 0) * (stock.unit_cost || 0)).toFixed(2)}</TableCell>
                           <TableCell>{format(new Date(stock.received_date), "MMM dd, yyyy")}</TableCell>
                           <TableCell>{stock.source || '-'}</TableCell>
                         </TableRow>
@@ -596,11 +687,14 @@ export default function Inputs() {
                               <SelectValue placeholder="Select item" />
                             </SelectTrigger>
                             <SelectContent>
-                              {inputItems?.map((item) => (
-                                <SelectItem key={item.id} value={item.id}>
-                                  {item.name} ({item.unit})
-                                </SelectItem>
-                              ))}
+                              {inputItems?.map((item) => {
+                                const availableQuantity = availableStock.get(item.id) || 0;
+                                return (
+                                  <SelectItem key={item.id} value={item.id}>
+                                    {item.name} ({item.unit}) - Stock: {availableQuantity.toFixed(1)}
+                                  </SelectItem>
+                                );
+                              })}
                             </SelectContent>
                           </Select>
                         </div>
@@ -637,6 +731,9 @@ export default function Inputs() {
                         <div>
                           <Label htmlFor="quantity">Quantity</Label>
                           <Input name="quantity" type="number" step="0.1" required placeholder="Enter quantity" />
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Available stock will be checked before distribution
+                          </p>
                         </div>
                         <div>
                           <Label htmlFor="season_id">Season (Optional)</Label>
@@ -687,6 +784,7 @@ export default function Inputs() {
                         <TableHead>Club</TableHead>
                         <TableHead>Farmer</TableHead>
                         <TableHead>Quantity</TableHead>
+                        <TableHead>Loan Created</TableHead>
                         <TableHead>Acknowledged</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -698,6 +796,9 @@ export default function Inputs() {
                           <TableCell>{distribution.farmer_groups?.name}</TableCell>
                           <TableCell>{distribution.farmers?.full_name || '-'}</TableCell>
                           <TableCell>{distribution.quantity} {distribution.input_items?.unit}</TableCell>
+                          <TableCell>
+                            <Badge variant="default">Yes</Badge>
+                          </TableCell>
                           <TableCell>
                             {distribution.acknowledgement_received ? (
                               <Badge variant="default">Yes</Badge>
@@ -713,6 +814,184 @@ export default function Inputs() {
                   <div className="text-center py-8 text-muted-foreground">
                     <TrendingDown className="h-12 w-12 mx-auto mb-4" />
                     <p>No distributions recorded yet</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="cash-payments">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Cash Payments</CardTitle>
+                    <CardDescription>Record cash payments to clubs and farmers</CardDescription>
+                  </div>
+                  <Dialog open={showCashPaymentDialog} onOpenChange={setShowCashPaymentDialog}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        Record Cash Payment
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Record Cash Payment</DialogTitle>
+                        <DialogDescription>
+                          Record cash payment to clubs/farmers
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleRecordCashPayment} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="farmer_group_id">Club</Label>
+                            <Select name="farmer_group_id" required>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select club" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {farmerGroups?.map((group) => (
+                                  <SelectItem key={group.id} value={group.id}>
+                                    {group.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="farmer_id">Specific Farmer (Optional)</Label>
+                            <Select name="farmer_id">
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select farmer" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {farmers?.map((farmer) => (
+                                  <SelectItem key={farmer.id} value={farmer.id}>
+                                    {farmer.full_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="amount">Amount (MWK)</Label>
+                            <Input name="amount" type="number" step="0.01" required placeholder="Enter amount" />
+                          </div>
+                          <div>
+                            <Label htmlFor="payment_type">Payment Type</Label>
+                            <Select name="payment_type" required>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="loan">Loan</SelectItem>
+                                <SelectItem value="grant">Grant</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="payment_method">Payment Method</Label>
+                            <Select name="payment_method" required>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select method" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="cash">Cash</SelectItem>
+                                <SelectItem value="bank">Bank</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="season_id">Season (Optional)</Label>
+                            <Select name="season_id">
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select season" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {seasons?.map((season) => (
+                                  <SelectItem key={season.id} value={season.id}>
+                                    {season.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="bank_details">Bank Details (Required if Bank)</Label>
+                          <Textarea name="bank_details" placeholder="Bank name, account number, etc." rows={2} />
+                        </div>
+                        <div>
+                          <Label htmlFor="purpose">Purpose</Label>
+                          <Input name="purpose" required placeholder="e.g., Farm inputs, Emergency support" />
+                        </div>
+                        <div>
+                          <Label htmlFor="payment_date">Payment Date</Label>
+                          <Input 
+                            name="payment_date" 
+                            type="date" 
+                            required 
+                            defaultValue={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="notes">Notes (Optional)</Label>
+                          <Textarea name="notes" placeholder="Additional notes..." rows={2} />
+                        </div>
+                        <div className="flex justify-end space-x-2">
+                          <Button type="button" variant="outline" onClick={() => setShowCashPaymentDialog(false)}>
+                            Cancel
+                          </Button>
+                          <Button type="submit">Record Payment</Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {cashPayments?.length ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Club</TableHead>
+                        <TableHead>Farmer</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Purpose</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cashPayments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell>{format(new Date(payment.payment_date), "MMM dd, yyyy")}</TableCell>
+                          <TableCell>{payment.farmer_groups?.name}</TableCell>
+                          <TableCell>{payment.farmers?.full_name || '-'}</TableCell>
+                          <TableCell className="font-medium">MWK {payment.amount.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <Badge variant={payment.payment_type === 'loan' ? 'default' : 'secondary'}>
+                              {payment.payment_type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{payment.payment_method}</Badge>
+                          </TableCell>
+                          <TableCell>{payment.purpose}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <DollarSign className="h-12 w-12 mx-auto mb-4" />
+                    <p>No cash payments recorded yet</p>
                   </div>
                 )}
               </CardContent>

@@ -196,7 +196,7 @@ export default function Dashboard() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalOutstanding.toFixed(0)}</div>
+              <div className="text-2xl font-bold">MWK {totalOutstanding.toFixed(0)}</div>
               <p className="text-xs text-muted-foreground">
                 {stats?.loans.filter(l => l.outstanding_balance > 0).length || 0} active loans
               </p>
@@ -211,7 +211,7 @@ export default function Dashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{totalDeliveries.toFixed(0)} kg</div>
               <p className="text-xs text-muted-foreground">
-                Value: ${totalValue.toFixed(0)}
+                Value: MWK {totalValue.toFixed(0)}
               </p>
             </CardContent>
           </Card>

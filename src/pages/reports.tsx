@@ -125,7 +125,7 @@ export default function Reports() {
             <CardContent>
               <div className="flex items-center gap-2">
                 <div className="text-2xl font-bold">
-                  ${loans?.reduce((sum, l) => sum + (l.outstanding_balance || 0), 0).toFixed(0) || 0}
+                  MWK {loans?.reduce((sum, l) => sum + (l.outstanding_balance || 0), 0).toFixed(0) || 0}
                 </div>
                 <AlertTriangle className="h-4 w-4 text-orange-500" />
               </div>
@@ -213,13 +213,13 @@ export default function Reports() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Total Loans Disbursed</span>
                     <span className="font-semibold">
-                      ${loans?.reduce((sum, l) => sum + (l.amount || 0), 0).toFixed(0) || 0}
+                      MWK {loans?.reduce((sum, l) => sum + (l.amount || 0), 0).toFixed(0) || 0}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Outstanding Balance</span>
                     <span className="font-semibold text-orange-600">
-                      ${loans?.reduce((sum, l) => sum + (l.outstanding_balance || 0), 0).toFixed(0) || 0}
+                      MWK {loans?.reduce((sum, l) => sum + (l.outstanding_balance || 0), 0).toFixed(0) || 0}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -251,7 +251,7 @@ export default function Reports() {
                     <YAxis />
                     <Tooltip />
                     <Line type="monotone" dataKey="weight" stroke="#8884d8" name="Weight (kg)" />
-                    <Line type="monotone" dataKey="value" stroke="#82ca9d" name="Value ($)" />
+                    <Line type="monotone" dataKey="value" stroke="#82ca9d" name="Value (MWK)" />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>

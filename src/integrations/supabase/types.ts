@@ -53,6 +53,89 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_payments: {
+        Row: {
+          amount: number
+          bank_details: string | null
+          created_at: string
+          created_by: string
+          farmer_group_id: string
+          farmer_id: string | null
+          id: string
+          loan_id: string | null
+          notes: string | null
+          payment_date: string
+          payment_method: string
+          payment_type: string
+          purpose: string
+          season_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bank_details?: string | null
+          created_at?: string
+          created_by: string
+          farmer_group_id: string
+          farmer_id?: string | null
+          id?: string
+          loan_id?: string | null
+          notes?: string | null
+          payment_date?: string
+          payment_method: string
+          payment_type: string
+          purpose: string
+          season_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bank_details?: string | null
+          created_at?: string
+          created_by?: string
+          farmer_group_id?: string
+          farmer_id?: string | null
+          id?: string
+          loan_id?: string | null
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+          payment_type?: string
+          purpose?: string
+          season_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_payments_farmer_group_id_fkey"
+            columns: ["farmer_group_id"]
+            isOneToOne: false
+            referencedRelation: "farmer_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_payments_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_payments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_payments_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       club_assignments: {
         Row: {
           assigned_by: string

@@ -60,9 +60,6 @@ export default function Clubs() {
         name: formData.get("name") as string,
         club_type: formData.get("club_type") as string,
         location: formData.get("location") as string,
-        contact_person: formData.get("contact_person") as string,
-        contact_phone: formData.get("contact_phone") as string,
-        contact_email: formData.get("contact_email") as string || null,
         chairperson_name: formData.get("chairperson_name") as string || null,
         chairperson_phone: formData.get("chairperson_phone") as string || null,
         village_headman: formData.get("village_headman") as string || null,
@@ -196,20 +193,7 @@ export default function Clubs() {
                   <Label htmlFor="location">Location</Label>
                   <Input name="location" required placeholder="Village/Area location" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="contact_person">Contact Person</Label>
-                    <Input name="contact_person" required placeholder="Primary contact name" />
-                  </div>
-                  <div>
-                    <Label htmlFor="contact_phone">Contact Phone</Label>
-                    <Input name="contact_phone" required placeholder="Phone number" />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="contact_email">Contact Email (Optional)</Label>
-                  <Input name="contact_email" type="email" placeholder="Email address" />
-                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="chairperson_name">Chairperson Name</Label>
@@ -448,7 +432,7 @@ export default function Clubs() {
               </div>
               <div>
                 <Label htmlFor="farm_size_acres">Farm Size (Acres)</Label>
-                <Input name="farm_size_acres" type="number" step="0.1" placeholder="Farm size in acres" />
+                <Input name="farm_size_acres" type="number" step="any" placeholder="Farm size in acres" />
               </div>
               <div className="flex justify-end space-x-2">
                 <Button type="button" variant="outline" onClick={() => setShowMemberDialog(false)}>

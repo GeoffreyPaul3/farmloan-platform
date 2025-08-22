@@ -240,7 +240,7 @@ export default function Deliveries() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="price_per_kg">Price per KG ($)</Label>
+                  <Label htmlFor="price_per_kg">Price per KG (MWK)</Label>
                   <Input 
                     name="price_per_kg" 
                     type="number" 
@@ -291,7 +291,7 @@ export default function Deliveries() {
               <CardTitle className="text-sm font-medium">Total Value</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalValue.toFixed(2)}</div>
+              <div className="text-2xl font-bold">MWK {totalValue.toFixed(2)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -300,7 +300,7 @@ export default function Deliveries() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${totalWeight ? (totalValue / totalWeight).toFixed(2) : '0.00'}
+                MWK {totalWeight ? (totalValue / totalWeight).toFixed(2) : '0.00'}
               </div>
             </CardContent>
           </Card>
@@ -335,8 +335,8 @@ export default function Deliveries() {
                         <TableCell className="font-medium">{delivery.farmers?.full_name}</TableCell>
                         <TableCell>{delivery.farmer_groups?.name}</TableCell>
                         <TableCell>{delivery.weight}</TableCell>
-                        <TableCell>${delivery.price_per_kg?.toFixed(2) || '0.00'}</TableCell>
-                        <TableCell>${delivery.gross_amount?.toFixed(2) || '0.00'}</TableCell>
+                        <TableCell>MWK {delivery.price_per_kg?.toFixed(2) || '0.00'}</TableCell>
+                        <TableCell>MWK {delivery.gross_amount?.toFixed(2) || '0.00'}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {hasGrading ? (
