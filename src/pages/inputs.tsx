@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Package, TrendingDown, Users, AlertTriangle } from "lucide-react";
+import { Plus, Package, TrendingDown, Users, AlertTriangle, Edit } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,8 @@ export default function Inputs() {
   const [showStockDialog, setShowStockDialog] = useState(false);
   const [showDistributionDialog, setShowDistributionDialog] = useState(false);
   const [showItemDialog, setShowItemDialog] = useState(false);
+  const [showEditItemDialog, setShowEditItemDialog] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
 
   const { data: inputItems, refetch: refetchItems } = useQuery({
     queryKey: ["input-items"],
@@ -136,6 +138,41 @@ export default function Inputs() {
       console.error("Error creating input item:", error);
       toast.error("Failed to create input item");
     }
+  };
+
+  const handleEditItem = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const itemData = {
+        name: formData.get("name") as string,
+        category: formData.get("category") as string,
+        unit: formData.get("unit") as string,
+        sku: formData.get("sku") as string || null,
+        active: formData.get("active") === "true"
+      };
+
+      const { error } = await supabase
+        .from("input_items")
+        .update(itemData)
+        .eq("id", editingItem.id);
+
+      if (error) throw error;
+
+      toast.success("Item updated successfully!");
+      setShowEditItemDialog(false);
+      setEditingItem(null);
+      refetchItems();
+    } catch (error) {
+      console.error("Error updating item:", error);
+      toast.error("Failed to update item");
+    }
+  };
+
+  const openEditDialog = (item: any) => {
+    setEditingItem(item);
+    setShowEditItemDialog(true);
   };
 
   const handleAddStock = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -271,6 +308,90 @@ export default function Inputs() {
                       Cancel
                     </Button>
                     <Button type="submit">Create Item</Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={showEditItemDialog} onOpenChange={setShowEditItemDialog}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Edit Input Item</DialogTitle>
+                  <DialogDescription>
+                    Update the input item details
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleEditItem} className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit_name">Item Name</Label>
+                    <Input 
+                      name="name" 
+                      required 
+                      placeholder="e.g., NPK Fertilizer"
+                      defaultValue={editingItem?.name || ""}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit_category">Category</Label>
+                    <Select name="category" required defaultValue={editingItem?.category || ""}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fertilizer">Fertilizer</SelectItem>
+                        <SelectItem value="pesticide">Pesticide</SelectItem>
+                        <SelectItem value="herbicide">Herbicide</SelectItem>
+                        <SelectItem value="seed">Seed</SelectItem>
+                        <SelectItem value="equipment">Equipment</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit_unit">Unit</Label>
+                    <Select name="unit" required defaultValue={editingItem?.unit || ""}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="kg">Kilograms</SelectItem>
+                        <SelectItem value="liters">Liters</SelectItem>
+                        <SelectItem value="bags">Bags</SelectItem>
+                        <SelectItem value="pieces">Pieces</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit_sku">SKU (Optional)</Label>
+                    <Input 
+                      name="sku" 
+                      placeholder="Product code"
+                      defaultValue={editingItem?.sku || ""}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit_active">Status</Label>
+                    <Select name="active" required defaultValue={editingItem?.active?.toString() || "true"}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Active</SelectItem>
+                        <SelectItem value="false">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => {
+                        setShowEditItemDialog(false);
+                        setEditingItem(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit">Update Item</Button>
                   </div>
                 </form>
               </DialogContent>
@@ -614,6 +735,7 @@ export default function Inputs() {
                         <TableHead>Unit</TableHead>
                         <TableHead>SKU</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -629,6 +751,16 @@ export default function Inputs() {
                             <Badge variant={item.active ? "default" : "secondary"}>
                               {item.active ? "Active" : "Inactive"}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openEditDialog(item)}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
