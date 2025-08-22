@@ -63,6 +63,9 @@ export default function AuditTrail() {
         query = query.or(`user_id.ilike.%${searchTerm}%,table_name.ilike.%${searchTerm}%`);
       }
 
+      // Note: RLS policies will automatically filter data based on user role
+      // Admins will see all logs, staff will only see their own logs
+
       const { data, error } = await query;
       if (error) throw error;
       return data as AuditLog[];
