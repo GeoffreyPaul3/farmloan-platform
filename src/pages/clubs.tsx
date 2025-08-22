@@ -317,7 +317,18 @@ export default function Clubs() {
                           </TableCell>
                           <TableCell>{club.location}</TableCell>
                           <TableCell>{club.contact_person}</TableCell>
-                          <TableCell>{club.total_members}</TableCell>
+                          <TableCell>
+                            {(() => {
+                              // Use total_members field, but if it's 0 or null, count actual farmers
+                              if (club.total_members && club.total_members > 0) {
+                                return club.total_members;
+                              } else {
+                                // Count actual farmers in this club
+                                const clubFarmers = farmers?.filter(f => f.farmer_group_id === club.id) || [];
+                                return clubFarmers.length;
+                              }
+                            })()}
+                          </TableCell>
                           <TableCell>
                             <Badge variant={club.status === 'active' ? 'default' : 'secondary'}>
                               {club.status}

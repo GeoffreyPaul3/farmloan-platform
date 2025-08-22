@@ -41,7 +41,7 @@ DROP POLICY IF EXISTS "Deliveries - staff select assigned" ON public.deliveries;
 CREATE POLICY "Deliveries - staff select assigned" ON public.deliveries
   FOR SELECT USING (
     public.get_user_role(auth.uid()) = 'admin' OR 
-    created_by = auth.uid() -- Staff can only see deliveries they created
+    officer_id = auth.uid() -- Staff can only see deliveries they created
   );
 
 -- Update input_distributions policies - Staff can only see input distributions they created
@@ -49,7 +49,7 @@ DROP POLICY IF EXISTS "Input distributions - staff select assigned" ON public.in
 CREATE POLICY "Input distributions - staff select assigned" ON public.input_distributions
   FOR SELECT USING (
     public.get_user_role(auth.uid()) = 'admin' OR 
-    created_by = auth.uid() -- Staff can only see input distributions they created
+    distributed_by = auth.uid() -- Staff can only see input distributions they created
   );
 
 -- Update equipment_issuance policies - Staff can only see equipment issuance they created
@@ -57,7 +57,7 @@ DROP POLICY IF EXISTS "Equipment issuance - staff select assigned" ON public.equ
 CREATE POLICY "Equipment issuance - staff select assigned" ON public.equipment_issuance
   FOR SELECT USING (
     public.get_user_role(auth.uid()) = 'admin' OR 
-    created_by = auth.uid() -- Staff can only see equipment issuance they created
+    issued_by = auth.uid() -- Staff can only see equipment issuance they created
   );
 
 -- Update repayments policies - Staff can only see repayments they created
@@ -65,7 +65,23 @@ DROP POLICY IF EXISTS "Repayments - staff select assigned" ON public.repayments;
 CREATE POLICY "Repayments - staff select assigned" ON public.repayments
   FOR SELECT USING (
     public.get_user_role(auth.uid()) = 'admin' OR 
-    created_by = auth.uid() -- Staff can only see repayments they created
+    recorded_by = auth.uid() -- Staff can only see repayments they created
+  );
+
+-- Update payouts policies - Staff can only see payouts they created
+DROP POLICY IF EXISTS "Payouts - staff select via delivery" ON public.payouts;
+CREATE POLICY "Payouts - staff select via delivery" ON public.payouts
+  FOR SELECT USING (
+    public.get_user_role(auth.uid()) = 'admin' OR 
+    created_by = auth.uid() -- Staff can only see payouts they created
+  );
+
+-- Update loan_ledgers policies - Staff can only see loan ledgers they created
+DROP POLICY IF EXISTS "Loan ledger - staff select assigned via farmer group" ON public.loan_ledgers;
+CREATE POLICY "Loan ledger - staff select assigned via farmer group" ON public.loan_ledgers
+  FOR SELECT USING (
+    public.get_user_role(auth.uid()) = 'admin' OR 
+    created_by = auth.uid() -- Staff can only see loan ledgers they created
   );
 
 -- 2. Fix Audit Trail - Admins should see all activity, staff see their own
@@ -85,7 +101,7 @@ CREATE POLICY "Audit logs - staff view own" ON public.audit_logs
     user_id = auth.uid() -- Staff can only see their own audit logs
   );
 
--- 3. Update INSERT policies to ensure created_by is set correctly
+-- 3. Update INSERT policies to ensure created_by/officer_id/issued_by/distributed_by/recorded_by is set correctly
 -- Update farmer_groups insert policy
 DROP POLICY IF EXISTS "Staff can create farmer groups" ON public.farmer_groups;
 CREATE POLICY "Staff can create farmer groups" ON public.farmer_groups
@@ -134,6 +150,38 @@ CREATE POLICY "Input distributions - insert staff/admin assigned" ON public.inpu
     public.can_user_access_data(auth.uid())
   );
 
+-- Update equipment_issuance insert policy
+DROP POLICY IF EXISTS "Equipment issuance - insert staff/admin assigned" ON public.equipment_issuance;
+CREATE POLICY "Equipment issuance - insert staff/admin assigned" ON public.equipment_issuance
+  FOR INSERT WITH CHECK (
+    public.get_user_role(auth.uid()) IS NOT NULL OR 
+    public.can_user_access_data(auth.uid())
+  );
+
+-- Update repayments insert policy
+DROP POLICY IF EXISTS "Repayments - insert staff/admin assigned" ON public.repayments;
+CREATE POLICY "Repayments - insert staff/admin assigned" ON public.repayments
+  FOR INSERT WITH CHECK (
+    public.get_user_role(auth.uid()) IS NOT NULL OR 
+    public.can_user_access_data(auth.uid())
+  );
+
+-- Update payouts insert policy
+DROP POLICY IF EXISTS "Payouts - insert staff/admin via delivery" ON public.payouts;
+CREATE POLICY "Payouts - insert staff/admin via delivery" ON public.payouts
+  FOR INSERT WITH CHECK (
+    public.get_user_role(auth.uid()) IS NOT NULL OR 
+    public.can_user_access_data(auth.uid())
+  );
+
+-- Update loan_ledgers insert policy
+DROP POLICY IF EXISTS "Loan ledger - insert staff/admin assigned" ON public.loan_ledgers;
+CREATE POLICY "Loan ledger - insert staff/admin assigned" ON public.loan_ledgers
+  FOR INSERT WITH CHECK (
+    public.get_user_role(auth.uid()) IS NOT NULL OR 
+    public.can_user_access_data(auth.uid())
+  );
+
 -- 4. Update UPDATE policies to ensure staff can only update their own data
 -- Update farmer_groups update policy
 DROP POLICY IF EXISTS "Staff can update farmer groups" ON public.farmer_groups;
@@ -172,12 +220,44 @@ DROP POLICY IF EXISTS "Deliveries - update staff/admin assigned" ON public.deliv
 CREATE POLICY "Deliveries - update staff/admin assigned" ON public.deliveries
   FOR UPDATE USING (
     public.get_user_role(auth.uid()) = 'admin' OR 
-    (public.get_user_role(auth.uid()) IS NOT NULL AND created_by = auth.uid())
+    (public.get_user_role(auth.uid()) IS NOT NULL AND officer_id = auth.uid())
   );
 
 -- Update input_distributions update policy
 DROP POLICY IF EXISTS "Input distributions - update staff/admin assigned" ON public.input_distributions;
 CREATE POLICY "Input distributions - update staff/admin assigned" ON public.input_distributions
+  FOR UPDATE USING (
+    public.get_user_role(auth.uid()) = 'admin' OR 
+    (public.get_user_role(auth.uid()) IS NOT NULL AND distributed_by = auth.uid())
+  );
+
+-- Update equipment_issuance update policy
+DROP POLICY IF EXISTS "Equipment issuance - update staff/admin assigned" ON public.equipment_issuance;
+CREATE POLICY "Equipment issuance - update staff/admin assigned" ON public.equipment_issuance
+  FOR UPDATE USING (
+    public.get_user_role(auth.uid()) = 'admin' OR 
+    (public.get_user_role(auth.uid()) IS NOT NULL AND issued_by = auth.uid())
+  );
+
+-- Update repayments update policy
+DROP POLICY IF EXISTS "Repayments - update staff/admin assigned" ON public.repayments;
+CREATE POLICY "Repayments - update staff/admin assigned" ON public.repayments
+  FOR UPDATE USING (
+    public.get_user_role(auth.uid()) = 'admin' OR 
+    (public.get_user_role(auth.uid()) IS NOT NULL AND recorded_by = auth.uid())
+  );
+
+-- Update payouts update policy
+DROP POLICY IF EXISTS "Payouts - update staff/admin assigned" ON public.payouts;
+CREATE POLICY "Payouts - update staff/admin assigned" ON public.payouts
+  FOR UPDATE USING (
+    public.get_user_role(auth.uid()) = 'admin' OR 
+    (public.get_user_role(auth.uid()) IS NOT NULL AND created_by = auth.uid())
+  );
+
+-- Update loan_ledgers update policy
+DROP POLICY IF EXISTS "Loan ledger - update staff/admin assigned" ON public.loan_ledgers;
+CREATE POLICY "Loan ledger - update staff/admin assigned" ON public.loan_ledgers
   FOR UPDATE USING (
     public.get_user_role(auth.uid()) = 'admin' OR 
     (public.get_user_role(auth.uid()) IS NOT NULL AND created_by = auth.uid())
@@ -221,12 +301,44 @@ DROP POLICY IF EXISTS "Deliveries - delete staff/admin assigned" ON public.deliv
 CREATE POLICY "Deliveries - delete staff/admin assigned" ON public.deliveries
   FOR DELETE USING (
     public.get_user_role(auth.uid()) = 'admin' OR 
-    (public.get_user_role(auth.uid()) IS NOT NULL AND created_by = auth.uid())
+    (public.get_user_role(auth.uid()) IS NOT NULL AND officer_id = auth.uid())
   );
 
 -- Update input_distributions delete policy
 DROP POLICY IF EXISTS "Input distributions - delete staff/admin assigned" ON public.input_distributions;
 CREATE POLICY "Input distributions - delete staff/admin assigned" ON public.input_distributions
+  FOR DELETE USING (
+    public.get_user_role(auth.uid()) = 'admin' OR 
+    (public.get_user_role(auth.uid()) IS NOT NULL AND distributed_by = auth.uid())
+  );
+
+-- Update equipment_issuance delete policy
+DROP POLICY IF EXISTS "Equipment issuance - delete staff/admin assigned" ON public.equipment_issuance;
+CREATE POLICY "Equipment issuance - delete staff/admin assigned" ON public.equipment_issuance
+  FOR DELETE USING (
+    public.get_user_role(auth.uid()) = 'admin' OR 
+    (public.get_user_role(auth.uid()) IS NOT NULL AND issued_by = auth.uid())
+  );
+
+-- Update repayments delete policy
+DROP POLICY IF EXISTS "Repayments - delete staff/admin assigned" ON public.repayments;
+CREATE POLICY "Repayments - delete staff/admin assigned" ON public.repayments
+  FOR DELETE USING (
+    public.get_user_role(auth.uid()) = 'admin' OR 
+    (public.get_user_role(auth.uid()) IS NOT NULL AND recorded_by = auth.uid())
+  );
+
+-- Update payouts delete policy
+DROP POLICY IF EXISTS "Payouts - delete staff/admin assigned" ON public.payouts;
+CREATE POLICY "Payouts - delete staff/admin assigned" ON public.payouts
+  FOR DELETE USING (
+    public.get_user_role(auth.uid()) = 'admin' OR 
+    (public.get_user_role(auth.uid()) IS NOT NULL AND created_by = auth.uid())
+  );
+
+-- Update loan_ledgers delete policy
+DROP POLICY IF EXISTS "Loan ledger - delete staff/admin assigned" ON public.loan_ledgers;
+CREATE POLICY "Loan ledger - delete staff/admin assigned" ON public.loan_ledgers
   FOR DELETE USING (
     public.get_user_role(auth.uid()) = 'admin' OR 
     (public.get_user_role(auth.uid()) IS NOT NULL AND created_by = auth.uid())
@@ -258,15 +370,19 @@ BEGIN
       UNION ALL
       SELECT created_by FROM public.field_visits WHERE id = record_id
       UNION ALL
-      SELECT created_by FROM public.deliveries WHERE id = record_id
+      SELECT officer_id FROM public.deliveries WHERE id = record_id
       UNION ALL
-      SELECT created_by FROM public.input_distributions WHERE id = record_id
+      SELECT distributed_by FROM public.input_distributions WHERE id = record_id
       UNION ALL
-      SELECT created_by FROM public.equipment_issuance WHERE id = record_id
+      SELECT issued_by FROM public.equipment_issuance WHERE id = record_id
       UNION ALL
-      SELECT created_by FROM public.repayments WHERE id = record_id
+      SELECT recorded_by FROM public.repayments WHERE id = record_id
+      UNION ALL
+      SELECT created_by FROM public.payouts WHERE id = record_id
+      UNION ALL
+      SELECT created_by FROM public.loan_ledgers WHERE id = record_id
     ) AS records
-    WHERE records.created_by = user_id
+    WHERE records.created_by = user_id OR records.officer_id = user_id OR records.issued_by = user_id OR records.distributed_by = user_id OR records.recorded_by = user_id
   );
 END;
 $$;
