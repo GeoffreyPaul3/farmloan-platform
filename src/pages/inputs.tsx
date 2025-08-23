@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { InputsSearch, type SearchFilters } from "@/components/search/inputs-search";
 
 export default function Inputs() {
   const [showStockDialog, setShowStockDialog] = useState(false);
@@ -24,6 +25,12 @@ export default function Inputs() {
   const [showItemDialog, setShowItemDialog] = useState(false);
   const [showEditItemDialog, setShowEditItemDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>({
+    searchTerm: '',
+    category: 'all',
+    season: 'all',
+    farmerGroup: 'all'
+  });
 
   const { data: inputItems, refetch: refetchItems } = useQuery({
     queryKey: ["input-items"],
@@ -323,6 +330,78 @@ export default function Inputs() {
   const totalDistributed = inputDistributions?.reduce((sum, d) => sum + d.quantity, 0) || 0;
   const totalCashPayments = cashPayments?.reduce((sum, p) => sum + p.amount, 0) || 0;
 
+  // Filter data based on search filters
+  const filteredInputItems = useMemo(() => {
+    if (!inputItems) return [];
+    
+    return inputItems.filter(item => {
+      const matchesSearch = !searchFilters.searchTerm || 
+        item.name.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()) ||
+        item.category.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()) ||
+        (item.sku && item.sku.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()));
+      
+      const matchesCategory = searchFilters.category === 'all' || item.category === searchFilters.category;
+      
+      return matchesSearch && matchesCategory;
+    });
+  }, [inputItems, searchFilters]);
+
+  const filteredInputStock = useMemo(() => {
+    if (!inputStock) return [];
+    
+    return inputStock.filter(stock => {
+      const matchesSearch = !searchFilters.searchTerm || 
+        stock.input_items?.name.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()) ||
+        stock.input_items?.category.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()) ||
+        (stock.source && stock.source.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()));
+      
+      const matchesCategory = searchFilters.category === 'all' || stock.input_items?.category === searchFilters.category;
+      const matchesSeason = searchFilters.season === 'all' || stock.season_id === searchFilters.season;
+      
+      return matchesSearch && matchesCategory && matchesSeason;
+    });
+  }, [inputStock, searchFilters]);
+
+  const filteredInputDistributions = useMemo(() => {
+    if (!inputDistributions) return [];
+    
+    return inputDistributions.filter(distribution => {
+      const matchesSearch = !searchFilters.searchTerm || 
+        distribution.input_items?.name.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()) ||
+        distribution.farmer_groups?.name.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()) ||
+        (distribution.farmers?.full_name && distribution.farmers.full_name.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()));
+      
+      const matchesCategory = searchFilters.category === 'all' || distribution.input_items?.category === searchFilters.category;
+      const matchesSeason = searchFilters.season === 'all' || distribution.season_id === searchFilters.season;
+      const matchesFarmerGroup = searchFilters.farmerGroup === 'all' || distribution.farmer_group_id === searchFilters.farmerGroup;
+      
+      return matchesSearch && matchesCategory && matchesSeason && matchesFarmerGroup;
+    });
+  }, [inputDistributions, searchFilters]);
+
+  const filteredCashPayments = useMemo(() => {
+    if (!cashPayments) return [];
+    
+    return cashPayments.filter(payment => {
+      const matchesSearch = !searchFilters.searchTerm || 
+        payment.farmer_groups?.name.toLowerCase().includes(searchFilters.searchTerm.toLowerCase()) ||
+        (payment.farmers?.full_name && payment.farmers.full_name.toLowerCase().includes(searchFilters.searchTerm.toLowerCase())) ||
+        payment.purpose.toLowerCase().includes(searchFilters.searchTerm.toLowerCase());
+      
+      const matchesSeason = searchFilters.season === 'all' || payment.season_id === searchFilters.season;
+      const matchesFarmerGroup = searchFilters.farmerGroup === 'all' || payment.farmer_group_id === searchFilters.farmerGroup;
+      
+      return matchesSearch && matchesSeason && matchesFarmerGroup;
+    });
+  }, [cashPayments, searchFilters]);
+
+  // Get unique categories for filter dropdown
+  const uniqueCategories = useMemo(() => {
+    const categories = new Set<string>();
+    inputItems?.forEach(item => categories.add(item.category));
+    return Array.from(categories).sort();
+  }, [inputItems]);
+
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
@@ -607,6 +686,24 @@ export default function Inputs() {
           </Card>
         </div>
 
+        {/* Search and Filters */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Search & Filters</CardTitle>
+            <CardDescription>
+              Search and filter inputs, stock, distributions, and payments
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <InputsSearch
+              onSearchChange={setSearchFilters}
+              categories={uniqueCategories}
+              seasons={seasons || []}
+              farmerGroups={farmerGroups || []}
+            />
+          </CardContent>
+        </Card>
+
         <Tabs defaultValue="stock" className="w-full">
           <TabsList>
             <TabsTrigger value="stock">Stock Levels</TabsTrigger>
@@ -622,7 +719,7 @@ export default function Inputs() {
                 <CardDescription>Available input stock and inventory levels</CardDescription>
               </CardHeader>
               <CardContent>
-                {inputStock?.length ? (
+                {filteredInputStock?.length ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -636,7 +733,7 @@ export default function Inputs() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {inputStock.map((stock) => (
+                      {filteredInputStock.map((stock) => (
                         <TableRow key={stock.id}>
                           <TableCell className="font-medium">{stock.input_items?.name}</TableCell>
                           <TableCell>
@@ -654,7 +751,7 @@ export default function Inputs() {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <Package className="h-12 w-12 mx-auto mb-4" />
-                    <p>No stock recorded yet</p>
+                    <p>{inputStock?.length ? 'No stock matches your search criteria' : 'No stock recorded yet'}</p>
                   </div>
                 )}
               </CardContent>
@@ -783,7 +880,7 @@ export default function Inputs() {
                 </div>
               </CardHeader>
               <CardContent>
-                {inputDistributions?.length ? (
+                {filteredInputDistributions?.length ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -797,7 +894,7 @@ export default function Inputs() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {inputDistributions.map((distribution) => (
+                      {filteredInputDistributions.map((distribution) => (
                         <TableRow key={distribution.id}>
                           <TableCell>{format(new Date(distribution.distribution_date), "MMM dd, yyyy")}</TableCell>
                           <TableCell className="font-medium">{distribution.input_items?.name}</TableCell>
@@ -821,7 +918,7 @@ export default function Inputs() {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <TrendingDown className="h-12 w-12 mx-auto mb-4" />
-                    <p>No distributions recorded yet</p>
+                    <p>{inputDistributions?.length ? 'No distributions match your search criteria' : 'No distributions recorded yet'}</p>
                   </div>
                 )}
               </CardContent>
@@ -963,7 +1060,7 @@ export default function Inputs() {
                 </div>
               </CardHeader>
               <CardContent>
-                {cashPayments?.length ? (
+                {filteredCashPayments?.length ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -977,7 +1074,7 @@ export default function Inputs() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {cashPayments.map((payment) => (
+                      {filteredCashPayments.map((payment) => (
                         <TableRow key={payment.id}>
                           <TableCell>{format(new Date(payment.payment_date), "MMM dd, yyyy")}</TableCell>
                           <TableCell>{payment.farmer_groups?.name}</TableCell>
@@ -999,7 +1096,7 @@ export default function Inputs() {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <DollarSign className="h-12 w-12 mx-auto mb-4" />
-                    <p>No cash payments recorded yet</p>
+                    <p>{cashPayments?.length ? 'No cash payments match your search criteria' : 'No cash payments recorded yet'}</p>
                   </div>
                 )}
               </CardContent>
@@ -1013,7 +1110,7 @@ export default function Inputs() {
                 <CardDescription>Manage input items and categories</CardDescription>
               </CardHeader>
               <CardContent>
-                {inputItems?.length ? (
+                {filteredInputItems?.length ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1026,7 +1123,7 @@ export default function Inputs() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {inputItems.map((item) => (
+                      {filteredInputItems.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell>
@@ -1056,7 +1153,7 @@ export default function Inputs() {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <AlertTriangle className="h-12 w-12 mx-auto mb-4" />
-                    <p>No input items in catalog yet</p>
+                    <p>{inputItems?.length ? 'No items match your search criteria' : 'No input items in catalog yet'}</p>
                   </div>
                 )}
               </CardContent>
