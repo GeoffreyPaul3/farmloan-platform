@@ -60,6 +60,8 @@ export default function Clubs() {
         name: formData.get("name") as string,
         club_type: formData.get("club_type") as string,
         location: formData.get("location") as string,
+        contact_person: formData.get("chairperson_name") as string || "Not specified",
+        contact_phone: formData.get("chairperson_phone") as string || "Not specified",
         chairperson_name: formData.get("chairperson_name") as string || null,
         chairperson_phone: formData.get("chairperson_phone") as string || null,
         village_headman: formData.get("village_headman") as string || null,
