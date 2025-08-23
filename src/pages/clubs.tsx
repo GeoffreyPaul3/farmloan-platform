@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Users, FileText, Upload } from "lucide-react";
+import { Plus, Users, FileText, Upload, Edit, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +20,11 @@ import { toast } from "sonner";
 export default function Clubs() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showMemberDialog, setShowMemberDialog] = useState(false);
+  const [showEditClubDialog, setShowEditClubDialog] = useState(false);
+  const [showEditMemberDialog, setShowEditMemberDialog] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
+  const [selectedClub, setSelectedClub] = useState<any>(null);
+  const [selectedMember, setSelectedMember] = useState<any>(null);
 
   const { data: clubs, isLoading, refetch } = useQuery({
     queryKey: ["farmer-groups"],
@@ -117,6 +121,74 @@ export default function Clubs() {
     } catch (error) {
       console.error("Error adding member:", error);
       toast.error("Failed to add member");
+    }
+  };
+
+  const handleEditClub = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const clubData = {
+        name: formData.get("name") as string,
+        club_type: formData.get("club_type") as string,
+        location: formData.get("location") as string,
+        contact_person: formData.get("chairperson_name") as string || "Not specified",
+        contact_phone: formData.get("chairperson_phone") as string || "Not specified",
+        chairperson_name: formData.get("chairperson_name") as string || null,
+        chairperson_phone: formData.get("chairperson_phone") as string || null,
+        village_headman: formData.get("village_headman") as string || null,
+        group_village_headman: formData.get("group_village_headman") as string || null,
+        traditional_authority: formData.get("traditional_authority") as string || null,
+        epa: formData.get("epa") as string || null,
+        notes: formData.get("notes") as string || null,
+      };
+
+      const { error } = await supabase
+        .from("farmer_groups")
+        .update(clubData)
+        .eq("id", selectedClub?.id);
+
+      if (error) throw error;
+
+      toast.success("Club updated successfully!");
+      setShowEditClubDialog(false);
+      setSelectedClub(null);
+      refetch();
+    } catch (error) {
+      console.error("Error updating club:", error);
+      toast.error("Failed to update club");
+    }
+  };
+
+  const handleEditMember = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const memberData = {
+        full_name: formData.get("full_name") as string,
+        national_id: formData.get("national_id") as string || null,
+        phone: formData.get("phone") as string,
+        gender: formData.get("gender") as string || null,
+        date_of_birth: formData.get("date_of_birth") as string || null,
+        farm_size_acres: parseFloat(formData.get("farm_size_acres") as string) || null,
+      };
+
+      const { error } = await supabase
+        .from("farmers")
+        .update(memberData)
+        .eq("id", selectedMember?.id);
+
+      if (error) throw error;
+
+      toast.success("Member updated successfully!");
+      setShowEditMemberDialog(false);
+      setSelectedMember(null);
+      refetchFarmers();
+    } catch (error) {
+      console.error("Error updating member:", error);
+      toast.error("Failed to update member");
     }
   };
 
@@ -321,16 +393,28 @@ export default function Clubs() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedClubId(club.id);
-                                setShowMemberDialog(true);
-                              }}
-                            >
-                              Add Member
-                            </Button>
+                            <div className="flex space-x-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedClubId(club.id);
+                                  setShowMemberDialog(true);
+                                }}
+                              >
+                                Add Member
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedClub(club);
+                                  setShowEditClubDialog(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -364,6 +448,7 @@ export default function Clubs() {
                         <TableHead>Farm Size</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Joined</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -380,6 +465,18 @@ export default function Clubs() {
                             </Badge>
                           </TableCell>
                           <TableCell>{format(new Date(farmer.join_date), "MMM dd, yyyy")}</TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedMember(farmer);
+                                setShowEditMemberDialog(true);
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -441,6 +538,200 @@ export default function Clubs() {
                   Cancel
                 </Button>
                 <Button type="submit">Add Member</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Club Dialog */}
+        <Dialog open={showEditClubDialog} onOpenChange={setShowEditClubDialog}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Club</DialogTitle>
+              <DialogDescription>
+                Update club information
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditClub} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Club Name</Label>
+                  <Input 
+                    name="name" 
+                    required 
+                    placeholder="Enter club name" 
+                    defaultValue={selectedClub?.name}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="club_type">Club Type</Label>
+                  <Select name="club_type" defaultValue={selectedClub?.club_type}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Association">Association</SelectItem>
+                      <SelectItem value="Cooperative">Cooperative</SelectItem>
+                      <SelectItem value="Group">Group</SelectItem>
+                      <SelectItem value="Society">Society</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="location">Location</Label>
+                <Input 
+                  name="location" 
+                  required 
+                  placeholder="Village/Area location" 
+                  defaultValue={selectedClub?.location}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="chairperson_name">Chairperson Name</Label>
+                  <Input 
+                    name="chairperson_name" 
+                    placeholder="Chairperson name" 
+                    defaultValue={selectedClub?.chairperson_name}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="chairperson_phone">Chairperson Phone</Label>
+                  <Input 
+                    name="chairperson_phone" 
+                    placeholder="Chairperson phone" 
+                    defaultValue={selectedClub?.chairperson_phone}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="village_headman">Village Headman</Label>
+                  <Input 
+                    name="village_headman" 
+                    placeholder="Village headman name" 
+                    defaultValue={selectedClub?.village_headman}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="group_village_headman">Group Village Headman</Label>
+                  <Input 
+                    name="group_village_headman" 
+                    placeholder="GVH name" 
+                    defaultValue={selectedClub?.group_village_headman}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="traditional_authority">Traditional Authority</Label>
+                  <Input 
+                    name="traditional_authority" 
+                    placeholder="TA name" 
+                    defaultValue={selectedClub?.traditional_authority}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="epa">EPA</Label>
+                  <Input 
+                    name="epa" 
+                    placeholder="Extension Planning Area" 
+                    defaultValue={selectedClub?.epa}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Textarea 
+                  name="notes" 
+                  placeholder="Additional notes..." 
+                  rows={3}
+                  defaultValue={selectedClub?.notes}
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setShowEditClubDialog(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Update Club</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Member Dialog */}
+        <Dialog open={showEditMemberDialog} onOpenChange={setShowEditMemberDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Club Member</DialogTitle>
+              <DialogDescription>
+                Update member information
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditMember} className="space-y-4">
+              <div>
+                <Label htmlFor="full_name">Full Name</Label>
+                <Input 
+                  name="full_name" 
+                  required 
+                  placeholder="Enter full name" 
+                  defaultValue={selectedMember?.full_name}
+                />
+              </div>
+              <div>
+                <Label htmlFor="national_id">National ID (Optional)</Label>
+                <Input 
+                  name="national_id" 
+                  placeholder="National ID number" 
+                  defaultValue={selectedMember?.national_id}
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input 
+                  name="phone" 
+                  required 
+                  placeholder="Phone number" 
+                  defaultValue={selectedMember?.phone}
+                />
+              </div>
+              <div>
+                <Label htmlFor="gender">Gender</Label>
+                <Select name="gender" defaultValue={selectedMember?.gender}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="date_of_birth">Date of Birth (Optional)</Label>
+                <Input 
+                  name="date_of_birth" 
+                  type="date" 
+                  defaultValue={selectedMember?.date_of_birth}
+                />
+              </div>
+              <div>
+                <Label htmlFor="farm_size_acres">Farm Size (Acres)</Label>
+                <Input 
+                  name="farm_size_acres" 
+                  type="number" 
+                  step="any" 
+                  placeholder="Farm size in acres" 
+                  defaultValue={selectedMember?.farm_size_acres}
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setShowEditMemberDialog(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Update Member</Button>
               </div>
             </form>
           </DialogContent>
