@@ -208,17 +208,8 @@ export default function Clubs() {
   const totalClubs = clubs?.length || 0;
   const activeClubs = clubs?.filter(c => c.status === 'active').length || 0;
   
-  // Calculate total members more accurately
-  const totalMembers = clubs?.reduce((sum, club) => {
-    // Use total_members field, but if it's 0 or null, count actual farmers
-    if (club.total_members && club.total_members > 0) {
-      return sum + club.total_members;
-    } else {
-      // Count actual farmers in this club
-      const clubFarmers = farmers?.filter(f => f.farmer_group_id === club.id) || [];
-      return sum + clubFarmers.length;
-    }
-  }, 0) || 0;
+  // Calculate total members - for staff, only count their registered farmers
+  const totalMembers = farmers?.length || 0;
 
   return (
     <DashboardLayout>
@@ -377,14 +368,9 @@ export default function Clubs() {
                           <TableCell>{club.contact_person}</TableCell>
                           <TableCell>
                             {(() => {
-                              // Use total_members field, but if it's 0 or null, count actual farmers
-                              if (club.total_members && club.total_members > 0) {
-                                return club.total_members;
-                              } else {
-                                // Count actual farmers in this club
-                                const clubFarmers = farmers?.filter(f => f.farmer_group_id === club.id) || [];
-                                return clubFarmers.length;
-                              }
+                              // For staff users, only show count of farmers they registered in this club
+                              const clubFarmers = farmers?.filter(f => f.farmer_group_id === club.id) || [];
+                              return clubFarmers.length;
                             })()}
                           </TableCell>
                           <TableCell>
