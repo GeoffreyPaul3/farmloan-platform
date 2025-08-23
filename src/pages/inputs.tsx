@@ -339,7 +339,7 @@ export default function Inputs() {
                   New Item
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Create Input Item</DialogTitle>
                   <DialogDescription>
@@ -395,7 +395,7 @@ export default function Inputs() {
               </DialogContent>
             </Dialog>
             <Dialog open={showEditItemDialog} onOpenChange={setShowEditItemDialog}>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Edit Input Item</DialogTitle>
                   <DialogDescription>
@@ -485,14 +485,14 @@ export default function Inputs() {
                   Add Stock
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add Stock</DialogTitle>
                   <DialogDescription>
                     Record new stock received
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleAddStock} className="space-y-4">
+                <form onSubmit={handleAddStock} className="space-y-3">
                   <div>
                     <Label htmlFor="item_id">Input Item</Label>
                     <Select name="item_id" required>
@@ -508,17 +508,30 @@ export default function Inputs() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label htmlFor="quantity">Quantity</Label>
-                    <Input name="quantity" type="number" step="0.1" required placeholder="Enter quantity" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="quantity">Quantity</Label>
+                      <Input name="quantity" type="number" step="0.1" required placeholder="Enter quantity" />
+                    </div>
+                    <div>
+                      <Label htmlFor="unit_cost">Unit Cost (MWK)</Label>
+                      <Input name="unit_cost" type="number" step="0.01" placeholder="Cost per unit" />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="unit_cost">Unit Cost (MWK)</Label>
-                    <Input name="unit_cost" type="number" step="0.01" placeholder="Cost per unit" />
-                  </div>
-                  <div>
-                    <Label htmlFor="source">Source</Label>
-                    <Input name="source" placeholder="Supplier name" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="source">Source</Label>
+                      <Input name="source" placeholder="Supplier name" />
+                    </div>
+                    <div>
+                      <Label htmlFor="received_date">Received Date</Label>
+                      <Input 
+                        name="received_date" 
+                        type="date" 
+                        required 
+                        defaultValue={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
                   </div>
                   <div>
                     <Label htmlFor="season_id">Season (Optional)</Label>
@@ -534,15 +547,6 @@ export default function Inputs() {
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="received_date">Received Date</Label>
-                    <Input 
-                      name="received_date" 
-                      type="date" 
-                      required 
-                      defaultValue={new Date().toISOString().split('T')[0]}
-                    />
                   </div>
                   <div>
                     <Label htmlFor="notes">Notes (Optional)</Label>
@@ -672,14 +676,14 @@ export default function Inputs() {
                         Record Distribution
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md">
+                    <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Record Distribution</DialogTitle>
                         <DialogDescription>
                           Track input distribution to clubs/farmers
                         </DialogDescription>
                       </DialogHeader>
-                      <form onSubmit={handleRecordDistribution} className="space-y-4">
+                      <form onSubmit={handleRecordDistribution} className="space-y-3">
                         <div>
                           <Label htmlFor="item_id">Input Item</Label>
                           <Select name="item_id" required>
@@ -698,42 +702,52 @@ export default function Inputs() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div>
-                          <Label htmlFor="farmer_group_id">Club</Label>
-                          <Select name="farmer_group_id" required>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select club" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {farmerGroups?.map((group) => (
-                                <SelectItem key={group.id} value={group.id}>
-                                  {group.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="farmer_group_id">Club</Label>
+                            <Select name="farmer_group_id" required>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select club" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {farmerGroups?.map((group) => (
+                                  <SelectItem key={group.id} value={group.id}>
+                                    {group.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="farmer_id">Specific Farmer (Optional)</Label>
+                            <Select name="farmer_id">
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select farmer" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {farmers?.map((farmer) => (
+                                  <SelectItem key={farmer.id} value={farmer.id}>
+                                    {farmer.full_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        <div>
-                          <Label htmlFor="farmer_id">Specific Farmer (Optional)</Label>
-                          <Select name="farmer_id">
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select farmer" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {farmers?.map((farmer) => (
-                                <SelectItem key={farmer.id} value={farmer.id}>
-                                  {farmer.full_name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="quantity">Quantity</Label>
-                          <Input name="quantity" type="number" step="0.1" required placeholder="Enter quantity" />
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Available stock will be checked before distribution
-                          </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="quantity">Quantity</Label>
+                            <Input name="quantity" type="number" step="0.1" required placeholder="Enter quantity" />
+                          </div>
+                          <div>
+                            <Label htmlFor="distribution_date">Distribution Date</Label>
+                            <Input 
+                              name="distribution_date" 
+                              type="date" 
+                              required 
+                              defaultValue={new Date().toISOString().split('T')[0]}
+                            />
+                          </div>
                         </div>
                         <div>
                           <Label htmlFor="season_id">Season (Optional)</Label>
@@ -751,18 +765,12 @@ export default function Inputs() {
                           </Select>
                         </div>
                         <div>
-                          <Label htmlFor="distribution_date">Distribution Date</Label>
-                          <Input 
-                            name="distribution_date" 
-                            type="date" 
-                            required 
-                            defaultValue={new Date().toISOString().split('T')[0]}
-                          />
-                        </div>
-                        <div>
                           <Label htmlFor="notes">Notes (Optional)</Label>
                           <Textarea name="notes" placeholder="Distribution notes..." rows={2} />
                         </div>
+                        <p className="text-sm text-muted-foreground">
+                          Available stock will be checked before distribution
+                        </p>
                         <div className="flex justify-end space-x-2">
                           <Button type="button" variant="outline" onClick={() => setShowDistributionDialog(false)}>
                             Cancel
