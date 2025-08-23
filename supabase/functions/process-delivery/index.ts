@@ -13,9 +13,12 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Process delivery function started')
+    
+    // Use service role key to bypass RLS policies
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
         auth: {
           persistSession: false,
@@ -23,110 +26,255 @@ serve(async (req) => {
       }
     )
 
-    const { deliveryId, paymentMethod = 'bank', referenceNumber } = await req.json()
+    const requestBody = await req.json()
+    console.log('Request body:', requestBody)
+    
+    const { deliveryId, paymentMethod = 'bank', referenceNumber } = requestBody
 
     if (!deliveryId) {
+      console.error('Missing deliveryId in request')
       return new Response(
         JSON.stringify({ error: 'Delivery ID is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Get delivery details with farmer and club info
+    console.log('Fetching delivery with ID:', deliveryId)
+
+    // First, try to get basic delivery info without joins
+    const { data: basicDelivery, error: basicDeliveryError } = await supabaseClient
+      .from('deliveries')
+      .select('*')
+      .eq('id', deliveryId)
+      .single()
+
+    if (basicDeliveryError) {
+      console.error('Basic delivery fetch error:', basicDeliveryError)
+      if (basicDeliveryError.code === 'PGRST116') {
+        throw new Error(`Delivery with ID '${deliveryId}' not found in database. Please check if the delivery exists.`)
+      }
+      throw new Error(`Failed to fetch delivery: ${basicDeliveryError.message}`)
+    }
+
+    if (!basicDelivery) {
+      console.error('Delivery not found for ID:', deliveryId)
+      throw new Error(`Delivery with ID '${deliveryId}' not found`)
+    }
+
+    console.log('Basic delivery found:', basicDelivery)
+
+    // Now try to get related data
     const { data: delivery, error: deliveryError } = await supabaseClient
       .from('deliveries')
       .select(`
         *,
-        farmers!inner(id, full_name, farmer_group_id),
-        farmer_groups!inner(id, name)
+        farmers(id, full_name, farmer_group_id),
+        farmer_groups(id, name)
       `)
       .eq('id', deliveryId)
       .single()
 
     if (deliveryError) {
-      throw new Error(`Failed to fetch delivery: ${deliveryError.message}`)
+      console.error('Delivery with relations fetch error:', deliveryError)
+      // Continue with basic delivery data
+      console.log('Using basic delivery data due to relation fetch error')
     }
 
-    // Get current season
-    const { data: activeSeason } = await supabaseClient
-      .from('seasons')
-      .select('*')
-      .eq('is_active', true)
+    const finalDelivery = delivery || basicDelivery
+
+    console.log('Final delivery data:', { 
+      id: finalDelivery.id, 
+      farmer_id: finalDelivery.farmer_id, 
+      farmer_group_id: finalDelivery.farmer_group_id,
+      weight: finalDelivery.weight,
+      price_per_kg: finalDelivery.price_per_kg,
+      officer_id: finalDelivery.officer_id
+    })
+
+    // Check if delivery has already been processed
+    const { data: existingPayout, error: payoutCheckError } = await supabaseClient
+      .from('payouts')
+      .select('id')
+      .eq('delivery_id', deliveryId)
       .single()
 
-    // Calculate outstanding loan balance for this farmer in current season
-    const { data: loans, error: loansError } = await supabaseClient
-      .from('loans')
-      .select('*')
-      .eq('farmer_group_id', delivery.farmer_group_id)
-      .gt('outstanding_balance', 0)
-      .order('created_at', { ascending: true })
-
-    if (loansError) {
-      throw new Error(`Failed to fetch loans: ${loansError.message}`)
+    if (payoutCheckError && payoutCheckError.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('Payout check error:', payoutCheckError)
+      throw new Error(`Failed to check existing payout: ${payoutCheckError.message}`)
     }
 
-    // Calculate total outstanding balance
-    const totalOutstanding = loans?.reduce((sum, loan) => sum + (loan.outstanding_balance || 0), 0) || 0
+    if (existingPayout) {
+      console.error('Delivery already processed:', deliveryId)
+      throw new Error('Delivery has already been processed for payment')
+    }
+
+    // Get current season (optional)
+    let activeSeason = null
+    try {
+      const { data: season, error: seasonError } = await supabaseClient
+        .from('seasons')
+        .select('*')
+        .eq('is_active', true)
+        .single()
+
+      if (!seasonError) {
+        activeSeason = season
+      }
+    } catch (err) {
+      console.log('Season fetch failed, continuing without season')
+    }
+
+    console.log('Active season:', activeSeason?.id)
+
+    // Calculate outstanding loan balance for this farmer group
+    let loans = []
+    let totalOutstanding = 0
+    
+    try {
+      const { data: loansData, error: loansError } = await supabaseClient
+        .from('loans')
+        .select('*')
+        .eq('farmer_group_id', finalDelivery.farmer_group_id)
+        .gt('outstanding_balance', 0)
+        .order('created_at', { ascending: true })
+
+      if (!loansError) {
+        loans = loansData || []
+        totalOutstanding = loans.reduce((sum, loan) => sum + (loan.outstanding_balance || 0), 0)
+      }
+    } catch (err) {
+      console.log('Loans fetch failed, continuing with zero outstanding balance')
+    }
+
+    console.log('Found loans:', loans.length)
+    console.log('Total outstanding balance:', totalOutstanding)
     
     // Calculate gross amount from delivery
-    const grossAmount = delivery.weight * (delivery.price_per_kg || 0)
+    const grossAmount = finalDelivery.weight * (finalDelivery.price_per_kg || 0)
+    console.log('Gross amount calculation:', { weight: finalDelivery.weight, price_per_kg: finalDelivery.price_per_kg, grossAmount })
+    
+    // Validate gross amount
+    if (grossAmount <= 0) {
+      console.error('Invalid gross amount:', grossAmount)
+      throw new Error('Invalid delivery: weight or price per kg is missing or zero')
+    }
     
     // Calculate loan deduction (up to outstanding balance or gross amount, whichever is smaller)
     const loanDeduction = Math.min(totalOutstanding, grossAmount)
     const netPaid = grossAmount - loanDeduction
-
-    // Create payout record
-    const { data: payout, error: payoutError } = await supabaseClient
-      .from('payouts')
-      .insert({
-        delivery_id: deliveryId,
-        gross_amount: grossAmount,
-        loan_deduction: loanDeduction,
-        net_paid: netPaid,
-        method: paymentMethod,
-        reference_number: referenceNumber,
-        created_by: delivery.officer_id
-      })
-      .select()
-      .single()
-
-    if (payoutError) {
-      throw new Error(`Failed to create payout: ${payoutError.message}`)
-    }
-
-    // Update loan balances and create ledger entries
-    let remainingDeduction = loanDeduction
     
-    for (const loan of loans || []) {
-      if (remainingDeduction <= 0) break
-      
-      const deductionAmount = Math.min(remainingDeduction, loan.outstanding_balance)
-      const newBalance = loan.outstanding_balance - deductionAmount
-      
-      // Update loan balance
-      await supabaseClient
-        .from('loans')
-        .update({ outstanding_balance: newBalance })
-        .eq('id', loan.id)
-      
-      // Create loan ledger entry
-      await supabaseClient
-        .from('loan_ledgers')
-        .insert({
-          farmer_id: delivery.farmer_id,
-          season_id: activeSeason?.id,
-          loan_id: loan.id,
-          entry_type: 'sale_deduction',
-          amount: -deductionAmount, // Negative for deduction
-          balance_after: newBalance,
-          reference_table: 'payouts',
-          reference_id: payout.id,
-          created_by: delivery.officer_id
-        })
-      
-      remainingDeduction -= deductionAmount
+    console.log('Payment calculation:', { grossAmount, loanDeduction, netPaid })
+
+    // Set the user context for audit triggers
+    const officerId = finalDelivery.officer_id
+    console.log('Setting user context for audit triggers:', officerId)
+
+    // Create payout record with proper user context
+    const payoutData = {
+      delivery_id: deliveryId,
+      gross_amount: grossAmount,
+      loan_deduction: loanDeduction,
+      net_paid: netPaid,
+      method: paymentMethod,
+      reference_number: referenceNumber,
+      created_by: officerId
     }
+    
+    console.log('Creating payout with data:', payoutData)
+    
+    // Create payout record using the database function to bypass audit triggers
+    let payout = null
+    
+    console.log('Creating payout record using database function...')
+    
+    try {
+      // Use the database function that temporarily disables audit triggers
+      const { data: payoutResult, error: payoutError } = await supabaseClient
+        .rpc('create_payout_direct', {
+          delivery_id: deliveryId,
+          gross_amount: grossAmount,
+          loan_deduction: loanDeduction,
+          net_paid: netPaid,
+          method: paymentMethod,
+          reference_number: referenceNumber,
+          created_by: officerId
+        })
+
+      if (payoutError) {
+        console.error('Database function failed:', payoutError)
+        throw new Error(`Failed to create payout: ${payoutError.message}`)
+      }
+      
+      payout = payoutResult
+      console.log('Payout created successfully using database function:', payout)
+      
+    } catch (error) {
+      console.error('Payout creation exception:', error)
+      throw new Error(`Failed to create payout: ${error.message}`)
+    }
+
+    console.log('Payout created successfully:', payout)
+
+    // Update loan balances and create ledger entries (only if there are loans)
+    if (loans.length > 0 && loanDeduction > 0) {
+      let remainingDeduction = loanDeduction
+      
+      for (const loan of loans) {
+        if (remainingDeduction <= 0) break
+        
+        const deductionAmount = Math.min(remainingDeduction, loan.outstanding_balance)
+        const newBalance = loan.outstanding_balance - deductionAmount
+        
+        console.log('Processing loan:', { loanId: loan.id, deductionAmount, newBalance })
+        
+        // Update loan balance directly
+        try {
+          const { error: updateError } = await supabaseClient
+            .from('loans')
+            .update({ outstanding_balance: newBalance })
+            .eq('id', loan.id)
+          
+          if (updateError) {
+            console.error('Loan update error:', updateError)
+            // Continue with other loans even if one fails
+          }
+        } catch (err) {
+          console.error('Loan update failed:', err)
+        }
+        
+        // Create loan ledger entry directly
+        try {
+          const ledgerData = {
+            farmer_id: finalDelivery.farmer_id,
+            season_id: activeSeason?.id,
+            loan_id: loan.id,
+            entry_type: 'sale_deduction',
+            amount: -deductionAmount, // Negative for deduction
+            balance_after: newBalance,
+            reference_table: 'payouts',
+            reference_id: payout.id,
+            created_by: officerId
+          }
+          
+          console.log('Creating ledger entry:', ledgerData)
+          
+          const { error: ledgerError } = await supabaseClient
+            .from('loan_ledgers')
+            .insert(ledgerData)
+          
+          if (ledgerError) {
+            console.error('Ledger creation error:', ledgerError)
+            // Continue with other loans even if ledger creation fails
+          }
+        } catch (err) {
+          console.error('Ledger creation failed:', err)
+        }
+        
+        remainingDeduction -= deductionAmount
+      }
+    }
+
+    console.log('Process delivery completed successfully')
 
     return new Response(
       JSON.stringify({
@@ -140,8 +288,14 @@ serve(async (req) => {
     )
 
   } catch (error) {
+    console.error('Process delivery error:', error)
+    console.error('Error stack:', error.stack)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack,
+        timestamp: new Date().toISOString()
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

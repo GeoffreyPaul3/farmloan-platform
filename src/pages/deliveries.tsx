@@ -143,6 +143,23 @@ export default function Deliveries() {
 
   const handleProcessPayment = async (deliveryId: string) => {
     try {
+      console.log('Processing payment for delivery ID:', deliveryId);
+      
+      // First, verify the delivery exists
+      const { data: deliveryCheck, error: checkError } = await supabase
+        .from('deliveries')
+        .select('id, farmer_id, weight, price_per_kg')
+        .eq('id', deliveryId)
+        .single();
+      
+      if (checkError) {
+        console.error('Delivery check error:', checkError);
+        toast.error(`Delivery not found: ${deliveryId}`);
+        return;
+      }
+      
+      console.log('Delivery found:', deliveryCheck);
+      
       const response = await supabase.functions.invoke('process-delivery', {
         body: {
           deliveryId,
@@ -157,6 +174,26 @@ export default function Deliveries() {
     } catch (error) {
       console.error("Error processing payment:", error);
       toast.error("Failed to process payment");
+    }
+  };
+
+  // Debug function to check all deliveries
+  const debugDeliveries = async () => {
+    try {
+      const { data: allDeliveries, error } = await supabase
+        .from('deliveries')
+        .select('id, delivery_date, weight, price_per_kg, farmer_id')
+        .order('delivery_date', { ascending: false })
+        .limit(10);
+      
+      if (error) {
+        console.error('Debug deliveries error:', error);
+        return;
+      }
+      
+      console.log('All deliveries in database:', allDeliveries);
+    } catch (error) {
+      console.error('Debug function error:', error);
     }
   };
 
