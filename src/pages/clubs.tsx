@@ -479,7 +479,7 @@ export default function Clubs() {
         </Tabs>
 
         <Dialog open={showMemberDialog} onOpenChange={setShowMemberDialog}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add Club Member</DialogTitle>
               <DialogDescription>
@@ -649,7 +649,7 @@ export default function Clubs() {
 
         {/* Edit Member Dialog */}
         <Dialog open={showEditMemberDialog} onOpenChange={setShowEditMemberDialog}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Club Member</DialogTitle>
               <DialogDescription>

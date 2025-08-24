@@ -25,6 +25,7 @@ export default function Inputs() {
   const [showItemDialog, setShowItemDialog] = useState(false);
   const [showEditItemDialog, setShowEditItemDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [selectedClubId, setSelectedClubId] = useState<string>("");
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({
     searchTerm: '',
     category: 'all',
@@ -214,6 +215,12 @@ export default function Inputs() {
     setShowEditItemDialog(true);
   };
 
+  // Filter farmers based on selected club
+  const filteredFarmers = useMemo(() => {
+    if (!selectedClubId || !farmers) return farmers;
+    return farmers.filter(farmer => farmer.farmer_group_id === selectedClubId);
+  }, [selectedClubId, farmers]);
+
   const handleAddStock = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -279,12 +286,18 @@ export default function Inputs() {
 
       toast.success("Distribution recorded successfully! Loan created automatically.");
       setShowDistributionDialog(false);
+      setSelectedClubId("");
       refetchDistributions();
       refetchStock();
     } catch (error) {
       console.error("Error recording distribution:", error);
       toast.error("Failed to record distribution");
     }
+  };
+
+  const resetDistributionDialog = () => {
+    setShowDistributionDialog(false);
+    setSelectedClubId("");
   };
 
   const handleRecordCashPayment = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -802,7 +815,12 @@ export default function Inputs() {
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor="farmer_group_id">Club</Label>
-                            <Select name="farmer_group_id" required>
+                            <Select 
+                              name="farmer_group_id" 
+                              required
+                              value={selectedClubId}
+                              onValueChange={(value) => setSelectedClubId(value)}
+                            >
                               <SelectTrigger>
                                 <SelectValue placeholder="Select club" />
                               </SelectTrigger>
@@ -819,10 +837,10 @@ export default function Inputs() {
                             <Label htmlFor="farmer_id">Specific Farmer (Optional)</Label>
                             <Select name="farmer_id">
                               <SelectTrigger>
-                                <SelectValue placeholder="Select farmer" />
+                                <SelectValue placeholder={selectedClubId ? "Select farmer from club" : "Select club first"} />
                               </SelectTrigger>
                               <SelectContent>
-                                {farmers?.map((farmer) => (
+                                {filteredFarmers?.map((farmer) => (
                                   <SelectItem key={farmer.id} value={farmer.id}>
                                     {farmer.full_name}
                                   </SelectItem>
@@ -869,7 +887,7 @@ export default function Inputs() {
                           Available stock will be checked before distribution
                         </p>
                         <div className="flex justify-end space-x-2">
-                          <Button type="button" variant="outline" onClick={() => setShowDistributionDialog(false)}>
+                          <Button type="button" variant="outline" onClick={resetDistributionDialog}>
                             Cancel
                           </Button>
                           <Button type="submit">Record Distribution</Button>

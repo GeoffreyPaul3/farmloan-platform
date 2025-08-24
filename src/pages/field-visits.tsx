@@ -124,11 +124,12 @@ export default function FieldVisits() {
 
   const getCropStageColor = (stage: string) => {
     switch (stage?.toLowerCase()) {
-      case 'seedling': return 'bg-green-100 text-green-800';
+      case 'sowing': return 'bg-green-100 text-green-800';
       case 'vegetative': return 'bg-blue-100 text-blue-800';
       case 'flowering': return 'bg-yellow-100 text-yellow-800';
-      case 'fruiting': return 'bg-orange-100 text-orange-800';
+      case 'boll_formation': return 'bg-orange-100 text-orange-800';
       case 'maturity': return 'bg-purple-100 text-purple-800';
+      case 'harvest': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -164,7 +165,7 @@ export default function FieldVisits() {
                 Record Visit
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Record Field Visit</DialogTitle>
                 <DialogDescription>
@@ -218,11 +219,12 @@ export default function FieldVisits() {
                       <SelectValue placeholder="Select crop stage" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="seedling">Seedling</SelectItem>
+                      <SelectItem value="sowing">Sowing</SelectItem>
                       <SelectItem value="vegetative">Vegetative</SelectItem>
                       <SelectItem value="flowering">Flowering</SelectItem>
-                      <SelectItem value="fruiting">Fruiting</SelectItem>
+                      <SelectItem value="boll_formation">Boll Formation</SelectItem>
                       <SelectItem value="maturity">Maturity</SelectItem>
+                      <SelectItem value="harvest">Harvest</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

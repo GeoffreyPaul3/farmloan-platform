@@ -580,7 +580,7 @@ export default function Uploads() {
 
         {/* Contract Upload Dialog */}
         <Dialog open={showContractUpload} onOpenChange={setShowContractUpload}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Upload Contract</DialogTitle>
               <DialogDescription>

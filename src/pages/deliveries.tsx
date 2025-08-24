@@ -228,7 +228,7 @@ export default function Deliveries() {
                 Record Delivery
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Record Cotton Delivery</DialogTitle>
                 <DialogDescription>
@@ -415,7 +415,7 @@ export default function Deliveries() {
         </Card>
 
         <Dialog open={showGradingDialog} onOpenChange={setShowGradingDialog}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add Grading Entry</DialogTitle>
               <DialogDescription>

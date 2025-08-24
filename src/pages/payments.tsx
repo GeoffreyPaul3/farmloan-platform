@@ -136,7 +136,7 @@ export default function Payments() {
               <CardTitle className="text-sm font-medium">Total Payouts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">MWK {totalPayouts.toFixed(2)}</div>
+              <div className="text-lg sm:text-xl font-bold break-words">MWK {totalPayouts.toFixed(2)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -144,7 +144,7 @@ export default function Payments() {
               <CardTitle className="text-sm font-medium">Cash Payments</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">MWK {totalCashPayments.toFixed(2)}</div>
+              <div className="text-lg sm:text-xl font-bold break-words">MWK {totalCashPayments.toFixed(2)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -152,7 +152,7 @@ export default function Payments() {
               <CardTitle className="text-sm font-medium">Input Distributions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalDistributions.toFixed(1)}</div>
+              <div className="text-lg sm:text-xl font-bold break-words">{totalDistributions.toFixed(1)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -160,7 +160,7 @@ export default function Payments() {
               <CardTitle className="text-sm font-medium">Outstanding Loans</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">MWK {outstandingLoans.toFixed(2)}</div>
+              <div className="text-lg sm:text-xl font-bold break-words">MWK {outstandingLoans.toFixed(2)}</div>
             </CardContent>
           </Card>
           <Card>
@@ -168,7 +168,7 @@ export default function Payments() {
               <CardTitle className="text-sm font-medium">Total Ledger Entries</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{loanLedgers?.length || 0}</div>
+              <div className="text-lg sm:text-xl font-bold break-words">{loanLedgers?.length || 0}</div>
             </CardContent>
           </Card>
         </div>
