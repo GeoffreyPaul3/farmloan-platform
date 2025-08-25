@@ -8,17 +8,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, ShoppingCart, Scale, DollarSign } from "lucide-react";
+import { Plus, ShoppingCart, Scale, DollarSign, Edit } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { CanEditButton } from "@/components/ui/data-ownership-badge";
 
 export default function Deliveries() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showGradingDialog, setShowGradingDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
+  const [selectedDelivery, setSelectedDelivery] = useState<any>(null);
 
   const { data: deliveries, isLoading, refetch } = useQuery({
     queryKey: ["deliveries"],
@@ -174,6 +177,48 @@ export default function Deliveries() {
     } catch (error) {
       console.error("Error processing payment:", error);
       toast.error("Failed to process payment");
+    }
+  };
+
+  const handleEditDelivery = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    if (!selectedDelivery) {
+      toast.error("No delivery selected");
+      return;
+    }
+
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const seasonId = formData.get('season_id') as string;
+      
+      const { error } = await supabase
+        .from('deliveries')
+        .update({
+          farmer_id: formData.get('farmer_id') as string,
+          season_id: seasonId || null,
+          weight: parseFloat(formData.get('weight') as string),
+          price_per_kg: parseFloat(formData.get('price_per_kg') as string),
+          delivery_date: formData.get('delivery_date') as string,
+          gross_amount: parseFloat(formData.get('weight') as string) * parseFloat(formData.get('price_per_kg') as string),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedDelivery.id);
+
+      if (error) {
+        console.error('Update delivery error:', error);
+        toast.error("Failed to update delivery");
+        return;
+      }
+
+      toast.success("Delivery updated successfully");
+      setShowEditDialog(false);
+      setSelectedDelivery(null);
+      refetch();
+    } catch (error) {
+      console.error('Edit delivery error:', error);
+      toast.error("Failed to update delivery");
     }
   };
 
@@ -398,6 +443,16 @@ export default function Deliveries() {
                             >
                               Process Payment
                             </Button>
+                            <CanEditButton 
+                              tableName="deliveries" 
+                              recordId={delivery.id} 
+                              onEdit={() => {
+                                setSelectedDelivery(delivery);
+                                setShowEditDialog(true);
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </CanEditButton>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -452,6 +507,89 @@ export default function Deliveries() {
                   Cancel
                 </Button>
                 <Button type="submit">Add Grading</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Delivery</DialogTitle>
+              <DialogDescription>
+                Update delivery details
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditDelivery} className="space-y-4">
+              <div>
+                <Label htmlFor="farmer_id">Farmer</Label>
+                <Select name="farmer_id" required defaultValue={selectedDelivery?.farmer_id}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select farmer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {farmers?.map((farmer) => (
+                      <SelectItem key={farmer.id} value={farmer.id}>
+                        {farmer.full_name} ({farmer.farmer_groups?.name})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="season_id">Season (Optional)</Label>
+                <Select name="season_id" defaultValue={selectedDelivery?.season_id || undefined}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select season" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {seasons?.map((season) => (
+                      <SelectItem key={season.id} value={season.id}>
+                        {season.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="weight">Weight (kg)</Label>
+                <Input 
+                  name="weight" 
+                  type="number" 
+                  step="0.1" 
+                  required 
+                  placeholder="Enter weight"
+                  defaultValue={selectedDelivery?.weight}
+                />
+              </div>
+              <div>
+                <Label htmlFor="price_per_kg">Price per KG (MWK)</Label>
+                <Input 
+                  name="price_per_kg" 
+                  type="number" 
+                  step="0.01" 
+                  required 
+                  placeholder="Enter price per kg"
+                  defaultValue={selectedDelivery?.price_per_kg}
+                />
+              </div>
+              <div>
+                <Label htmlFor="delivery_date">Delivery Date</Label>
+                <Input 
+                  name="delivery_date" 
+                  type="date" 
+                  required 
+                  defaultValue={selectedDelivery?.delivery_date}
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => {
+                  setShowEditDialog(false);
+                  setSelectedDelivery(null);
+                }}>
+                  Cancel
+                </Button>
+                <Button type="submit">Update Delivery</Button>
               </div>
             </form>
           </DialogContent>
