@@ -63,10 +63,30 @@ export default function Inputs() {
     },
   });
 
-  // Calculate available stock levels for each item
+  // Get stock summary with consolidated quantities
+  const { data: stockSummary, refetch: refetchStockSummary } = useQuery({
+    queryKey: ["input-stock-summary"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("input_stock_summary")
+        .select("*")
+        .order("item_name");
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Calculate available stock levels for each item (fallback to old method)
   const availableStock = useMemo(() => {
     const stockMap = new Map();
-    if (inputStock) {
+    if (stockSummary) {
+      // Use the new consolidated stock summary
+      stockSummary.forEach(item => {
+        stockMap.set(item.item_id, item.total_quantity);
+      });
+    } else if (inputStock) {
+      // Fallback to old method
       inputStock.forEach(stock => {
         const itemId = stock.item_id;
         const currentStock = stockMap.get(itemId) || 0;
@@ -74,7 +94,7 @@ export default function Inputs() {
       });
     }
     return stockMap;
-  }, [inputStock]);
+  }, [stockSummary, inputStock]);
 
   const { data: inputDistributions, refetch: refetchDistributions } = useQuery({
     queryKey: ["input-distributions"],
@@ -246,6 +266,7 @@ export default function Inputs() {
       toast.success("Stock added successfully!");
       setShowStockDialog(false);
       refetchStock();
+      refetchStockSummary();
     } catch (error) {
       console.error("Error adding stock:", error);
       toast.error("Failed to add stock");
@@ -259,7 +280,7 @@ export default function Inputs() {
     const itemId = formData.get("item_id") as string;
     const quantity = parseFloat(formData.get("quantity") as string);
     
-    // Check stock availability before proceeding
+    // Check stock availability before proceeding (this will also be checked by the database trigger)
     const availableQuantity = availableStock.get(itemId) || 0;
     if (quantity > availableQuantity) {
       toast.error(`Insufficient stock. Available: ${availableQuantity.toFixed(1)} units`);
@@ -284,11 +305,12 @@ export default function Inputs() {
 
       if (error) throw error;
 
-      toast.success("Distribution recorded successfully! Loan created automatically.");
+      toast.success("Distribution recorded successfully! Stock deducted automatically.");
       setShowDistributionDialog(false);
       setSelectedClubId("");
       refetchDistributions();
       refetchStock();
+      refetchStockSummary();
     } catch (error) {
       console.error("Error recording distribution:", error);
       toast.error("Failed to record distribution");
@@ -720,6 +742,7 @@ export default function Inputs() {
         <Tabs defaultValue="stock" className="w-full">
           <TabsList>
             <TabsTrigger value="stock">Stock Levels</TabsTrigger>
+            <TabsTrigger value="stock-summary">Stock Summary</TabsTrigger>
             <TabsTrigger value="distributions">Distributions</TabsTrigger>
             <TabsTrigger value="cash-payments">Cash Payments</TabsTrigger>
             <TabsTrigger value="items">Item Catalog</TabsTrigger>
@@ -765,6 +788,60 @@ export default function Inputs() {
                   <div className="text-center py-8 text-muted-foreground">
                     <Package className="h-12 w-12 mx-auto mb-4" />
                     <p>{inputStock?.length ? 'No stock matches your search criteria' : 'No stock recorded yet'}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="stock-summary">
+            <Card>
+              <CardHeader>
+                <CardTitle>Consolidated Stock Summary</CardTitle>
+                <CardDescription>Overview of all input items with consolidated quantities and values</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {stockSummary?.length ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Available Quantity</TableHead>
+                        <TableHead>Total Value</TableHead>
+                        <TableHead>Stock Records</TableHead>
+                        <TableHead>First Received</TableHead>
+                        <TableHead>Last Received</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stockSummary.map((item) => (
+                        <TableRow key={item.item_id}>
+                          <TableCell className="font-medium">{item.item_name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{item.category}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <span className={`font-semibold ${item.total_quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {item.total_quantity.toFixed(1)} {item.unit}
+                            </span>
+                          </TableCell>
+                          <TableCell>MWK {item.total_value.toFixed(2)}</TableCell>
+                          <TableCell>{item.stock_records_count}</TableCell>
+                          <TableCell>
+                            {item.first_received_date ? format(new Date(item.first_received_date), "MMM dd, yyyy") : '-'}
+                          </TableCell>
+                          <TableCell>
+                            {item.last_received_date ? format(new Date(item.last_received_date), "MMM dd, yyyy") : '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Package className="h-12 w-12 mx-auto mb-4" />
+                    <p>{stockSummary ? 'No stock summary available' : 'Loading stock summary...'}</p>
                   </div>
                 )}
               </CardContent>
