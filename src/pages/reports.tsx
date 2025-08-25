@@ -5,8 +5,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { TrendingUp, Users, AlertTriangle, CheckCircle, Download, FileText, FileSpreadsheet, File } from "lucide-react";
+import { TrendingUp, Users, AlertTriangle, CheckCircle, Download, FileText, FileSpreadsheet, File, Eye } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
@@ -18,6 +19,8 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function Reports() {
   const [selectedReport, setSelectedReport] = useState<string>("");
+  const [viewReportData, setViewReportData] = useState<any>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   const { data: clubs } = useQuery({
     queryKey: ["clubs-summary"],
@@ -64,7 +67,7 @@ export default function Reports() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("loans")
-        .select("*");
+        .select("*, farmers(full_name), farmer_groups(name)");
       if (error) throw error;
       return data;
     },
@@ -812,17 +815,27 @@ export default function Reports() {
 
     const totalOutstanding = loans?.reduce((sum, l) => sum + (l.outstanding_balance || 0), 0) || 0;
     const totalLoans = loans?.reduce((sum, l) => sum + (l.amount || 0), 0) || 0;
+    const totalRepaid = totalLoans - totalOutstanding;
+    const recoveryRate = totalLoans > 0 ? (totalRepaid / totalLoans) * 100 : 0;
 
     return {
       title: 'Loan Account Balances',
-      content: `Total Loans: MWK ${totalLoans.toFixed(2)}\nTotal Outstanding: MWK ${totalOutstanding.toFixed(2)}`,
+      summary: `This report provides a comprehensive overview of all loan accounts in the system, showing opening balances, repayments made, and outstanding amounts for each farmer.`,
+      metrics: [
+        { label: 'Total Loans Disbursed', value: `MWK ${totalLoans.toFixed(2)}`, description: 'Total amount of loans issued' },
+        { label: 'Total Outstanding', value: `MWK ${totalOutstanding.toFixed(2)}`, description: 'Total amount still owed' },
+        { label: 'Total Repayments', value: `MWK ${totalRepaid.toFixed(2)}`, description: 'Total amount repaid' },
+        { label: 'Recovery Rate', value: `${recoveryRate.toFixed(1)}%`, description: 'Percentage of loans recovered' }
+      ],
       data: data,
       worksheets: [
         {
           name: 'Loan Balances',
           data: data
         }
-      ]
+      ],
+      generatedBy: currentUser?.full_name || 'Current User',
+      period: 'All Time'
     };
   };
 
@@ -846,16 +859,28 @@ export default function Reports() {
       };
     }) || [];
 
+    const totalOutstanding = loans?.reduce((sum, l) => sum + (l.outstanding_balance || 0), 0) || 0;
+    const totalLoans = loans?.reduce((sum, l) => sum + (l.amount || 0), 0) || 0;
+    const totalRepaid = totalLoans - totalOutstanding;
+
     return {
       title: 'Loan Statement (per Farmer)',
-      content: `Total Loans: ${loans?.length || 0}\nTotal Outstanding: MWK ${loans?.reduce((sum, l) => sum + (l.outstanding_balance || 0), 0).toFixed(2) || 0}`,
+      summary: `This report provides a detailed ledger-style statement for each farmer showing all loan disbursements and repayments made.`,
+      metrics: [
+        { label: 'Total Loans', value: loans?.length || 0, description: 'Number of active loans' },
+        { label: 'Total Disbursed', value: `MWK ${totalLoans.toFixed(2)}`, description: 'Total amount disbursed' },
+        { label: 'Total Outstanding', value: `MWK ${totalOutstanding.toFixed(2)}`, description: 'Total amount still owed' },
+        { label: 'Total Repaid', value: `MWK ${totalRepaid.toFixed(2)}`, description: 'Total amount repaid' }
+      ],
       data: data,
       worksheets: [
         {
           name: 'Loan Statement',
           data: data
         }
-      ]
+      ],
+      generatedBy: currentUser?.full_name || 'Current User',
+      period: 'All Time'
     };
   };
 
@@ -905,9 +930,20 @@ export default function Reports() {
       'Days Overdue': Math.floor((today.getTime() - new Date(loan.due_date || '').getTime()) / (1000 * 60 * 60 * 24))
     }));
 
+    const totalRiskyLoans = par30.length + par60.length + par90.length;
+    const totalRiskyAmount = par30.reduce((sum, l) => sum + (l.outstanding_balance || 0), 0) + 
+                            par60.reduce((sum, l) => sum + (l.outstanding_balance || 0), 0) + 
+                            par90.reduce((sum, l) => sum + (l.outstanding_balance || 0), 0);
+
     return {
       title: 'Portfolio at Risk (PAR) Report',
-      content: `Total Risky Loans: ${par30.length + par60.length + par90.length}`,
+      summary: `This report identifies loans that are overdue and categorizes them by risk level (PAR 30, 60, and 90+ days).`,
+      metrics: [
+        { label: 'Total Risky Loans', value: totalRiskyLoans, description: 'Number of overdue loans' },
+        { label: 'Total Risky Amount', value: `MWK ${totalRiskyAmount.toFixed(2)}`, description: 'Total outstanding amount at risk' },
+        { label: 'PAR 30 Loans', value: par30.length, description: 'Loans 31-60 days overdue' },
+        { label: 'PAR 60+ Loans', value: par60.length + par90.length, description: 'Loans 61+ days overdue' }
+      ],
       data: summaryData,
       worksheets: [
         {
@@ -918,7 +954,9 @@ export default function Reports() {
           name: 'PAR Details',
           data: detailData
         }
-      ]
+      ],
+      generatedBy: currentUser?.full_name || 'Current User',
+      period: 'All Time'
     };
   };
 
@@ -940,14 +978,22 @@ export default function Reports() {
 
     return {
       title: 'Seasonal Recovery Report',
-      content: `Total Loans: MWK ${totalLoans.toFixed(2)}\nRecovery Rate: ${recoveryRate.toFixed(1)}%`,
+      summary: `This report provides a comprehensive overview of loan recovery performance for the current season.`,
+      metrics: [
+        { label: 'Total Loans Disbursed', value: `MWK ${totalLoans.toFixed(2)}`, description: 'Total amount disbursed this season' },
+        { label: 'Total Repayments', value: `MWK ${recoveredLoans.toFixed(2)}`, description: 'Total amount recovered' },
+        { label: 'Outstanding Balance', value: `MWK ${outstandingLoans.toFixed(2)}`, description: 'Amount still outstanding' },
+        { label: 'Recovery Rate', value: `${recoveryRate.toFixed(1)}%`, description: 'Percentage of loans recovered' }
+      ],
       data: data,
       worksheets: [
         {
           name: 'Seasonal Recovery',
           data: data
         }
-      ]
+      ],
+      generatedBy: currentUser?.full_name || 'Current User',
+      period: `${new Date().getFullYear()} Season`
     };
   };
 
@@ -1017,14 +1063,22 @@ export default function Reports() {
 
     return {
       title: 'Input Summary by Item',
-      content: `Total Items: ${Object.keys(itemSummary).length}\nTotal Value: MWK ${totalValue.toFixed(2)}`,
+      summary: `This report provides a summary of all input items distributed, showing total quantities and values by item type.`,
+      metrics: [
+        { label: 'Total Items', value: Object.keys(itemSummary).length, description: 'Number of different input types' },
+        { label: 'Total Value', value: `MWK ${totalValue.toFixed(2)}`, description: 'Total value of all inputs distributed' },
+        { label: 'Total Quantity', value: Object.values(itemSummary).reduce((sum, summary) => sum + summary.quantity, 0), description: 'Total quantity of all inputs' },
+        { label: 'Average Item Value', value: `MWK ${(totalValue / Object.keys(itemSummary).length).toFixed(2)}`, description: 'Average value per item type' }
+      ],
       data: data,
       worksheets: [
         {
           name: 'Input Summary',
           data: data
         }
-      ]
+      ],
+      generatedBy: currentUser?.full_name || 'Current User',
+      period: 'All Time'
     };
   };
 
@@ -1054,14 +1108,22 @@ export default function Reports() {
 
     return {
       title: 'Delivery & Grading Report',
-      content: `Total Deliveries: ${deliveries?.length || 0}\nTotal Weight: ${totalWeight.toFixed(2)} kg\nTotal Value: MWK ${totalValue.toFixed(2)}`,
+      summary: `This report provides detailed information about cotton deliveries, including weights, grades, and values for each farmer.`,
+      metrics: [
+        { label: 'Total Deliveries', value: deliveries?.length || 0, description: 'Number of delivery transactions' },
+        { label: 'Total Weight', value: `${totalWeight.toFixed(2)} kg`, description: 'Total cotton weight delivered' },
+        { label: 'Total Value', value: `MWK ${totalValue.toFixed(2)}`, description: 'Total value of all deliveries' },
+        { label: 'Average Price/kg', value: `MWK ${totalWeight > 0 ? (totalValue / totalWeight).toFixed(2) : 0}`, description: 'Average price per kilogram' }
+      ],
       data: data,
       worksheets: [
         {
           name: 'Delivery & Grading',
           data: data
         }
-      ]
+      ],
+      generatedBy: currentUser?.full_name || 'Current User',
+      period: 'All Time'
     };
   };
 
@@ -1088,16 +1150,27 @@ export default function Reports() {
     const totalDeliveryValue = deliveries?.reduce((sum, d) => sum + (d.gross_amount || 0), 0) || 0;
     const totalLoanOffset = deliveries?.reduce((sum, d) => sum + (d.loan_offset || 0), 0) || 0;
 
+    const totalNetProceeds = totalDeliveryValue - totalLoanOffset;
+    const averageOffsetPercentage = totalDeliveryValue > 0 ? (totalLoanOffset / totalDeliveryValue) * 100 : 0;
+
     return {
       title: 'Loan Offset from Deliveries',
-      content: `Total Delivery Value: MWK ${totalDeliveryValue.toFixed(2)}\nTotal Loan Offset: MWK ${totalLoanOffset.toFixed(2)}`,
+      summary: `This report shows how cotton delivery proceeds are used to offset outstanding loans, providing transparency in the loan recovery process.`,
+      metrics: [
+        { label: 'Total Delivery Value', value: `MWK ${totalDeliveryValue.toFixed(2)}`, description: 'Total value of all deliveries' },
+        { label: 'Total Loan Offset', value: `MWK ${totalLoanOffset.toFixed(2)}`, description: 'Total amount used for loan repayment' },
+        { label: 'Net Proceeds', value: `MWK ${totalNetProceeds.toFixed(2)}`, description: 'Amount remaining after loan offset' },
+        { label: 'Average Offset %', value: `${averageOffsetPercentage.toFixed(1)}%`, description: 'Average percentage of delivery value used for loans' }
+      ],
       data: data,
       worksheets: [
         {
           name: 'Loan Offset',
           data: data
         }
-      ]
+      ],
+      generatedBy: currentUser?.full_name || 'Current User',
+      period: 'All Time'
     };
   };
 
@@ -1129,7 +1202,13 @@ export default function Reports() {
 
     return {
       title: 'Exceptions Report',
-      content: `Total Exceptions: ${allExceptions.length}\nNo Deliveries: ${noDeliveriesData.length}\nNo Repayments: ${noRepaymentsData.length}`,
+      summary: `This report identifies farmers with exceptions such as receiving inputs but not making deliveries, or having loans without any repayments.`,
+      metrics: [
+        { label: 'Total Exceptions', value: allExceptions.length, description: 'Total number of exceptions found' },
+        { label: 'No Deliveries', value: noDeliveriesData.length, description: 'Farmers with inputs but no deliveries' },
+        { label: 'No Repayments', value: noRepaymentsData.length, description: 'Farmers with loans but no repayments' },
+        { label: 'Exception Rate', value: `${farmers?.length ? ((allExceptions.length / farmers.length) * 100).toFixed(1) : 0}%`, description: 'Percentage of farmers with exceptions' }
+      ],
       data: allExceptions,
       worksheets: [
         {
@@ -1144,7 +1223,9 @@ export default function Reports() {
           name: 'No Repayments',
           data: noRepaymentsData
         }
-      ]
+      ],
+      generatedBy: currentUser?.full_name || 'Current User',
+      period: 'All Time'
     };
   };
 
@@ -1187,9 +1268,18 @@ export default function Reports() {
       }))
     );
 
+    const totalActiveLoans = loans?.filter(l => l.status === 'active').length || 0;
+    const totalOutstandingAmount = Object.values(agingBuckets).flat().reduce((sum, loan) => sum + (loan.outstanding_balance || 0), 0);
+
     return {
       title: 'Aging Report',
-      content: `Total Active Loans: ${loans?.filter(l => l.status === 'active').length || 0}`,
+      summary: `This report categorizes outstanding loans by their aging buckets to help identify loans that require immediate attention.`,
+      metrics: [
+        { label: 'Total Active Loans', value: totalActiveLoans, description: 'Number of active loans in the system' },
+        { label: 'Total Outstanding', value: `MWK ${totalOutstandingAmount.toFixed(2)}`, description: 'Total outstanding amount across all loans' },
+        { label: 'Overdue Loans', value: Object.values(agingBuckets).slice(1).flat().length, description: 'Number of loans past due date' },
+        { label: 'Current Loans', value: agingBuckets['0-30'].length, description: 'Number of loans within 30 days of due date' }
+      ],
       data: summaryData,
       worksheets: [
         {
@@ -1200,7 +1290,9 @@ export default function Reports() {
           name: 'Aging Details',
           data: detailData
         }
-      ]
+      ],
+      generatedBy: currentUser?.full_name || 'Current User',
+      period: 'All Time'
     };
   };
 
@@ -1263,15 +1355,67 @@ export default function Reports() {
 
     return {
       title: 'Seasonal Summary Dashboard',
-      content: `Season: ${new Date().getFullYear()}\nGenerated: ${new Date().toLocaleString()}`,
+      summary: `This comprehensive dashboard provides an overview of all key performance indicators for the current season, including membership, inputs, deliveries, and loan performance.`,
+      metrics: [
+        { label: 'Members Enrolled', value: totalMembers, description: 'Total number of registered farmers' },
+        { label: 'Total Inputs Value', value: `MWK ${totalInputsValue.toFixed(2)}`, description: 'Total value of inputs distributed' },
+        { label: 'Total Deliveries', value: `${totalDeliveries.toFixed(2)} kg`, description: 'Total cotton weight delivered' },
+        { label: 'Recovery Rate', value: `${recoveryRate.toFixed(1)}%`, description: 'Percentage of loans recovered' }
+      ],
       data: summaryData,
       worksheets: [
         {
           name: 'Seasonal Summary',
           data: summaryData
         }
-      ]
+      ],
+      generatedBy: currentUser?.full_name || 'Current User',
+      period: `${new Date().getFullYear()} Season`
     };
+  };
+
+  const viewReport = (reportType: string) => {
+    let reportData: any = {};
+    switch (reportType) {
+      case 'membership-register':
+        reportData = generateMembershipRegisterData();
+        break;
+      case 'loan-balances':
+        reportData = generateLoanBalancesData();
+        break;
+      case 'loan-statement':
+        reportData = generateLoanStatementData();
+        break;
+      case 'portfolio-risk':
+        reportData = generatePortfolioRiskData();
+        break;
+      case 'seasonal-recovery':
+        reportData = generateSeasonalRecoveryData();
+        break;
+      case 'input-distribution':
+        reportData = generateInputDistributionData();
+        break;
+      case 'input-summary':
+        reportData = generateInputSummaryData();
+        break;
+      case 'delivery-grading':
+        reportData = generateDeliveryGradingData();
+        break;
+      case 'loan-offset':
+        reportData = generateLoanOffsetData();
+        break;
+      case 'exceptions':
+        reportData = generateExceptionsReportData();
+        break;
+      case 'aging-report':
+        reportData = generateAgingReportData();
+        break;
+      case 'seasonal-summary':
+        reportData = generateSeasonalSummaryData();
+        break;
+    }
+    setViewReportData(reportData);
+    setIsViewModalOpen(true);
   };
 
   return (
@@ -1477,6 +1621,10 @@ export default function Reports() {
                       <p className="text-sm text-muted-foreground">Full list of farmers grouped by association/district</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => viewReport('membership-register')}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadReport('word', 'membership-register')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Word
@@ -1509,6 +1657,10 @@ export default function Reports() {
                       <p className="text-sm text-muted-foreground">Opening balance, inputs issued, repayments, outstanding balance</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => viewReport('loan-balances')}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadReport('word', 'loan-balances')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Word
@@ -1530,6 +1682,10 @@ export default function Reports() {
                       <p className="text-sm text-muted-foreground">Ledger-style showing all disbursements and repayments</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => viewReport('loan-statement')}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadReport('word', 'loan-statement')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Word
@@ -1551,6 +1707,10 @@ export default function Reports() {
                       <p className="text-sm text-muted-foreground">Overdue loans showing number of farmers and amounts</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => viewReport('portfolio-risk')}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadReport('word', 'portfolio-risk')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Word
@@ -1572,6 +1732,10 @@ export default function Reports() {
                       <p className="text-sm text-muted-foreground">Total loans vs repayments recovered per season</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => viewReport('seasonal-recovery')}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadReport('word', 'seasonal-recovery')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Word
@@ -1604,6 +1768,10 @@ export default function Reports() {
                       <p className="text-sm text-muted-foreground">Items disbursed, quantities, and values by farmer/group/season</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => viewReport('input-distribution')}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadReport('word', 'input-distribution')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Word
@@ -1625,6 +1793,10 @@ export default function Reports() {
                       <p className="text-sm text-muted-foreground">Total issued per season, aggregated at company level</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => viewReport('input-summary')}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadReport('word', 'input-summary')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Word
@@ -1646,6 +1818,10 @@ export default function Reports() {
                       <p className="text-sm text-muted-foreground">Cotton delivered per farmer with grade, weight, value</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => viewReport('delivery-grading')}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadReport('word', 'delivery-grading')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Word
@@ -1667,6 +1843,10 @@ export default function Reports() {
                       <p className="text-sm text-muted-foreground">Value of cotton delivered vs loan repayment vs net proceeds</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => viewReport('loan-offset')}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadReport('word', 'loan-offset')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Word
@@ -1699,6 +1879,10 @@ export default function Reports() {
                       <p className="text-sm text-muted-foreground">Farmers with inputs but no deliveries, loans without repayments</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => viewReport('exceptions')}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadReport('word', 'exceptions')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Word
@@ -1720,6 +1904,10 @@ export default function Reports() {
                       <p className="text-sm text-muted-foreground">Balances outstanding bucketed by days overdue</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => viewReport('aging-report')}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadReport('word', 'aging-report')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Word
@@ -1741,6 +1929,10 @@ export default function Reports() {
                       <p className="text-sm text-muted-foreground">Comprehensive seasonal performance overview</p>
                     </div>
                     <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => viewReport('seasonal-summary')}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadReport('word', 'seasonal-summary')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Word
@@ -1763,6 +1955,139 @@ export default function Reports() {
       </TabsContent>
         </Tabs>
       </div>
+
+      {/* Report View Modal */}
+      <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewReportData?.title || 'Report View'}</DialogTitle>
+            <DialogDescription>
+              {viewReportData?.summary || 'Report data preview'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {viewReportData && (
+            <div className="space-y-6">
+              {/* Executive Summary */}
+              {viewReportData.summary && (
+                <div className="p-4 bg-muted rounded-lg">
+                  <h3 className="font-semibold mb-2">Executive Summary</h3>
+                  <p className="text-sm text-muted-foreground">{viewReportData.summary}</p>
+                </div>
+              )}
+
+              {/* Key Metrics */}
+              {viewReportData.metrics && viewReportData.metrics.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {viewReportData.metrics.map((metric: any, index: number) => (
+                    <div key={index} className="p-4 border rounded-lg">
+                      <h4 className="font-medium text-sm text-muted-foreground">{metric.label}</h4>
+                      <p className="text-2xl font-bold">{metric.value}</p>
+                      {metric.description && (
+                        <p className="text-xs text-muted-foreground mt-1">{metric.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Report Metadata */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Generated By:</span> {viewReportData.generatedBy || 'System User'}
+                </div>
+                <div>
+                  <span className="font-medium">Report Period:</span> {viewReportData.period || 'All Time'}
+                </div>
+                <div>
+                  <span className="font-medium">Generated:</span> {new Date().toLocaleString()}
+                </div>
+              </div>
+
+              {/* Detailed Data Table */}
+              {viewReportData.data && viewReportData.data.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold">Detailed Data</h3>
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="max-h-96 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            {Object.keys(viewReportData.data[0]).map((header) => (
+                              <TableHead key={header} className="whitespace-nowrap">
+                                {header}
+                              </TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {viewReportData.data.slice(0, 50).map((row: any, index: number) => (
+                            <TableRow key={index}>
+                              {Object.values(row).map((value: any, cellIndex: number) => (
+                                <TableCell key={cellIndex} className="whitespace-nowrap">
+                                  {String(value || '')}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {viewReportData.data.length > 50 && (
+                      <div className="p-4 bg-muted text-center text-sm text-muted-foreground">
+                        Showing first 50 records of {viewReportData.data.length} total records
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Multiple Worksheets */}
+              {viewReportData.worksheets && viewReportData.worksheets.length > 1 && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold">Additional Worksheets</h3>
+                  <div className="space-y-2">
+                    {viewReportData.worksheets.slice(1).map((worksheet: any, index: number) => (
+                      <div key={index} className="p-3 border rounded-lg">
+                        <h4 className="font-medium mb-2">{worksheet.name}</h4>
+                        <div className="max-h-48 overflow-y-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                {worksheet.data.length > 0 && Object.keys(worksheet.data[0]).map((header) => (
+                                  <TableHead key={header} className="whitespace-nowrap">
+                                    {header}
+                                  </TableHead>
+                                ))}
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {worksheet.data.slice(0, 20).map((row: any, rowIndex: number) => (
+                                <TableRow key={rowIndex}>
+                                  {Object.values(row).map((value: any, cellIndex: number) => (
+                                    <TableCell key={cellIndex} className="whitespace-nowrap">
+                                      {String(value || '')}
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                        {worksheet.data.length > 20 && (
+                          <div className="text-center text-xs text-muted-foreground mt-2">
+                            Showing first 20 records of {worksheet.data.length} total records
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

@@ -16,6 +16,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { DataOwnershipBadge } from "@/components/ui/data-ownership-badge";
+import { useDataOwnership } from "@/hooks/use-data-ownership";
 
 export default function Clubs() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -354,56 +356,74 @@ export default function Clubs() {
                         <TableHead>Contact Person</TableHead>
                         <TableHead>Members</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Created By</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {clubs.map((club) => (
-                        <TableRow key={club.id}>
-                          <TableCell className="font-medium">{club.name}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{club.club_type}</Badge>
-                          </TableCell>
-                          <TableCell>{club.location}</TableCell>
-                          <TableCell>{club.contact_person}</TableCell>
-                          <TableCell>
-                            {(() => {
-                              // For staff users, only show count of farmers they registered in this club
-                              const clubFarmers = farmers?.filter(f => f.farmer_group_id === club.id) || [];
-                              return clubFarmers.length;
-                            })()}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={club.status === 'active' ? 'default' : 'secondary'}>
-                              {club.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex space-x-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedClubId(club.id);
-                                  setShowMemberDialog(true);
-                                }}
-                              >
-                                Add Member
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedClub(club);
-                                  setShowEditClubDialog(true);
-                                }}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {clubs.map((club) => {
+                        const { ownershipInfo } = useDataOwnership('farmer_groups', club.id);
+                        
+                        return (
+                          <TableRow key={club.id}>
+                            <TableCell className="font-medium">{club.name}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{club.club_type}</Badge>
+                            </TableCell>
+                            <TableCell>{club.location}</TableCell>
+                            <TableCell>{club.contact_person}</TableCell>
+                            <TableCell>
+                              {(() => {
+                                // For staff users, only show count of farmers they registered in this club
+                                const clubFarmers = farmers?.filter(f => f.farmer_group_id === club.id) || [];
+                                return clubFarmers.length;
+                              })()}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={club.status === 'active' ? 'default' : 'secondary'}>
+                                {club.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {ownershipInfo && (
+                                <DataOwnershipBadge
+                                  createdBy={ownershipInfo.createdBy}
+                                  createdByName={ownershipInfo.createdByName}
+                                  createdAt={ownershipInfo.createdAt}
+                                  isOwnData={ownershipInfo.isOwnData}
+                                  showDetails={false}
+                                />
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedClubId(club.id);
+                                    setShowMemberDialog(true);
+                                  }}
+                                >
+                                  Add Member
+                                </Button>
+                                {ownershipInfo?.canEdit && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSelectedClub(club);
+                                      setShowEditClubDialog(true);
+                                    }}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 ) : (
@@ -434,37 +454,55 @@ export default function Clubs() {
                         <TableHead>Farm Size</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Joined</TableHead>
+                        <TableHead>Created By</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {farmers.map((farmer) => (
-                        <TableRow key={farmer.id}>
-                          <TableCell className="font-medium">{farmer.full_name}</TableCell>
-                          <TableCell>{farmer.farmer_groups?.name}</TableCell>
-                          <TableCell>{farmer.national_id || '-'}</TableCell>
-                          <TableCell>{farmer.phone}</TableCell>
-                          <TableCell>{farmer.farm_size_acres ? `${farmer.farm_size_acres} acres` : '-'}</TableCell>
-                          <TableCell>
-                            <Badge variant={farmer.status === 'active' ? 'default' : 'secondary'}>
-                              {farmer.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{format(new Date(farmer.join_date), "MMM dd, yyyy")}</TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedMember(farmer);
-                                setShowEditMemberDialog(true);
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {farmers.map((farmer) => {
+                        const { ownershipInfo } = useDataOwnership('farmers', farmer.id);
+                        
+                        return (
+                          <TableRow key={farmer.id}>
+                            <TableCell className="font-medium">{farmer.full_name}</TableCell>
+                            <TableCell>{farmer.farmer_groups?.name}</TableCell>
+                            <TableCell>{farmer.national_id || '-'}</TableCell>
+                            <TableCell>{farmer.phone}</TableCell>
+                            <TableCell>{farmer.farm_size_acres ? `${farmer.farm_size_acres} acres` : '-'}</TableCell>
+                            <TableCell>
+                              <Badge variant={farmer.status === 'active' ? 'default' : 'secondary'}>
+                                {farmer.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{format(new Date(farmer.join_date), "MMM dd, yyyy")}</TableCell>
+                            <TableCell>
+                              {ownershipInfo && (
+                                <DataOwnershipBadge
+                                  createdBy={ownershipInfo.createdBy}
+                                  createdByName={ownershipInfo.createdByName}
+                                  createdAt={ownershipInfo.createdAt}
+                                  isOwnData={ownershipInfo.isOwnData}
+                                  showDetails={false}
+                                />
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {ownershipInfo?.canEdit && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedMember(farmer);
+                                    setShowEditMemberDialog(true);
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 ) : (
