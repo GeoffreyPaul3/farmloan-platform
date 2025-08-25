@@ -571,6 +571,80 @@ SELECT public.create_policy_if_not_exists(
   'CREATE POLICY "Seasons - only admins can delete" ON public.seasons FOR DELETE USING (public.is_admin(auth.uid()))'
 );
 
+-- PAYOUTS (Payments & Loan Recovery)
+DROP POLICY IF EXISTS "Payouts - admin select all" ON public.payouts;
+DROP POLICY IF EXISTS "Payouts - staff select via delivery" ON public.payouts;
+DROP POLICY IF EXISTS "Payouts - insert staff/admin via delivery" ON public.payouts;
+DROP POLICY IF EXISTS "Payouts - staff select from own clubs" ON public.payouts;
+DROP POLICY IF EXISTS "Payouts - insert by authenticated staff/admin" ON public.payouts;
+DROP POLICY IF EXISTS "Payouts - update by creator or admin" ON public.payouts;
+DROP POLICY IF EXISTS "Payouts - delete by admin only" ON public.payouts;
+
+-- All authenticated users can view all payouts
+SELECT public.create_policy_if_not_exists(
+  'payouts',
+  'Payouts - all users can view',
+  'CREATE POLICY "Payouts - all users can view" ON public.payouts FOR SELECT USING (true)'
+);
+
+-- All authenticated users can create payouts
+SELECT public.create_policy_if_not_exists(
+  'payouts',
+  'Payouts - all users can create',
+  'CREATE POLICY "Payouts - all users can create" ON public.payouts FOR INSERT WITH CHECK (auth.uid() IS NOT NULL)'
+);
+
+-- Only admins can update/delete payouts
+SELECT public.create_policy_if_not_exists(
+  'payouts',
+  'Payouts - only admins can edit',
+  'CREATE POLICY "Payouts - only admins can edit" ON public.payouts FOR UPDATE USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()))'
+);
+
+SELECT public.create_policy_if_not_exists(
+  'payouts',
+  'Payouts - only admins can delete',
+  'CREATE POLICY "Payouts - only admins can delete" ON public.payouts FOR DELETE USING (public.is_admin(auth.uid()))'
+);
+
+-- LOAN_LEDGERS (Farmer Ledgers - Individual farmer account movements)
+DROP POLICY IF EXISTS "Loan ledger - admin select all" ON public.loan_ledgers;
+DROP POLICY IF EXISTS "Loan ledger - staff select assigned via farmer group" ON public.loan_ledgers;
+DROP POLICY IF EXISTS "Loan ledger - insert staff/admin assigned" ON public.loan_ledgers;
+DROP POLICY IF EXISTS "Loan ledger - update staff/admin assigned" ON public.loan_ledgers;
+DROP POLICY IF EXISTS "Loan ledger - delete staff/admin assigned" ON public.loan_ledgers;
+DROP POLICY IF EXISTS "Loan ledger - staff select from own clubs" ON public.loan_ledgers;
+DROP POLICY IF EXISTS "Loan ledger - insert by authenticated staff/admin" ON public.loan_ledgers;
+DROP POLICY IF EXISTS "Loan ledger - update by creator or admin" ON public.loan_ledgers;
+DROP POLICY IF EXISTS "Loan ledger - delete by admin only" ON public.loan_ledgers;
+
+-- All authenticated users can view all loan ledgers
+SELECT public.create_policy_if_not_exists(
+  'loan_ledgers',
+  'Loan ledger - all users can view',
+  'CREATE POLICY "Loan ledger - all users can view" ON public.loan_ledgers FOR SELECT USING (true)'
+);
+
+-- All authenticated users can create loan ledgers
+SELECT public.create_policy_if_not_exists(
+  'loan_ledgers',
+  'Loan ledger - all users can create',
+  'CREATE POLICY "Loan ledger - all users can create" ON public.loan_ledgers FOR INSERT WITH CHECK (auth.uid() IS NOT NULL)'
+);
+
+-- Only admins can update/delete loan ledgers
+SELECT public.create_policy_if_not_exists(
+  'loan_ledgers',
+  'Loan ledger - only admins can edit',
+  'CREATE POLICY "Loan ledger - only admins can edit" ON public.loan_ledgers FOR UPDATE USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()))'
+);
+
+SELECT public.create_policy_if_not_exists(
+  'loan_ledgers',
+  'Loan ledger - only admins can delete',
+  'CREATE POLICY "Loan ledger - only admins can delete" ON public.loan_ledgers FOR DELETE USING (public.is_admin(auth.uid()))'
+);
+
 -- 5. Create a function to get data ownership information
 CREATE OR REPLACE FUNCTION public.get_data_ownership_info(table_name TEXT, record_id UUID)
 RETURNS TABLE(
@@ -612,6 +686,10 @@ AS $$
       SELECT issued_by as created_by, created_at FROM public.equipment_issuance WHERE id = record_id
       UNION ALL
       SELECT recorded_by as created_by, created_at FROM public.repayments WHERE id = record_id
+      UNION ALL
+      SELECT created_by, created_at FROM public.payouts WHERE id = record_id
+      UNION ALL
+      SELECT created_by, created_at FROM public.loan_ledgers WHERE id = record_id
     ) AS combined_data
     LIMIT 1
   ) AS data_info;
@@ -723,7 +801,31 @@ SELECT
   (SELECT full_name FROM public.profiles WHERE user_id = recorded_by) as created_by_name,
   created_at,
   CASE WHEN recorded_by = auth.uid() THEN 'You created this' ELSE 'Created by ' || (SELECT full_name FROM public.profiles WHERE user_id = recorded_by) END as ownership_label
-FROM public.repayments;
+FROM public.repayments
+
+UNION ALL
+
+SELECT 
+  'payouts' as table_name,
+  id as record_id,
+  'Payout MWK ' || net_paid as record_name,
+  created_by,
+  (SELECT full_name FROM public.profiles WHERE user_id = created_by) as created_by_name,
+  created_at,
+  CASE WHEN created_by = auth.uid() THEN 'You created this' ELSE 'Created by ' || (SELECT full_name FROM public.profiles WHERE user_id = created_by) END as ownership_label
+FROM public.payouts
+
+UNION ALL
+
+SELECT 
+  'loan_ledgers' as table_name,
+  id as record_id,
+  'Ledger Entry ' || entry_type || ' MWK ' || amount as record_name,
+  created_by,
+  (SELECT full_name FROM public.profiles WHERE user_id = created_by) as created_by_name,
+  created_at,
+  CASE WHEN created_by = auth.uid() THEN 'You created this' ELSE 'Created by ' || (SELECT full_name FROM public.profiles WHERE user_id = created_by) END as ownership_label
+FROM public.loan_ledgers;
 
 -- 7. Views don't need RLS policies - they inherit permissions from underlying tables
 -- The data_ownership_view will be accessible based on the RLS policies of the underlying tables
@@ -745,6 +847,8 @@ CREATE INDEX IF NOT EXISTS idx_field_visits_created_by ON public.field_visits(cr
 CREATE INDEX IF NOT EXISTS idx_equipment_created_by ON public.equipment(created_by);
 CREATE INDEX IF NOT EXISTS idx_equipment_issuance_issued_by ON public.equipment_issuance(issued_by);
 CREATE INDEX IF NOT EXISTS idx_repayments_recorded_by ON public.repayments(recorded_by);
+CREATE INDEX IF NOT EXISTS idx_payouts_created_by ON public.payouts(created_by);
+CREATE INDEX IF NOT EXISTS idx_loan_ledgers_created_by ON public.loan_ledgers(created_by);
 
 -- 10. Migration completed successfully
 -- Note: Audit logging is handled by triggers on individual tables

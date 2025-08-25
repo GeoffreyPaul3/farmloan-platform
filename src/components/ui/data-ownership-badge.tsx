@@ -1,7 +1,9 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import { User, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { User, Users, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useDataOwnership } from '@/hooks/use-data-ownership';
 
 interface DataOwnershipBadgeProps {
   createdBy: string;
@@ -101,5 +103,60 @@ export function DataOwnershipInfo({
         </p>
       )}
     </div>
+  );
+}
+
+export function DataOwnershipCell({ 
+  tableName, 
+  recordId, 
+  className 
+}: { 
+  tableName: string; 
+  recordId: string; 
+  className?: string; 
+}) {
+  const { ownershipInfo } = useDataOwnership(tableName, recordId);
+  
+  if (!ownershipInfo) {
+    return <span className="text-muted-foreground text-xs">Loading...</span>;
+  }
+  
+  return (
+    <DataOwnershipBadge
+      createdBy={ownershipInfo.createdBy}
+      createdByName={ownershipInfo.createdByName}
+      createdAt={ownershipInfo.createdAt}
+      isOwnData={ownershipInfo.isOwnData}
+      showDetails={false}
+      className={className}
+    />
+  );
+}
+
+export function CanEditButton({ 
+  tableName, 
+  recordId, 
+  onEdit,
+  children = <Edit className="h-4 w-4" />
+}: { 
+  tableName: string; 
+  recordId: string; 
+  onEdit: () => void;
+  children?: React.ReactNode;
+}) {
+  const { ownershipInfo } = useDataOwnership(tableName, recordId);
+  
+  if (!ownershipInfo?.canEdit) {
+    return null;
+  }
+  
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={onEdit}
+    >
+      {children}
+    </Button>
   );
 }

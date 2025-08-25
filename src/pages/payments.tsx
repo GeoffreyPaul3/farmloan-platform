@@ -8,6 +8,7 @@ import { DollarSign, CreditCard, TrendingUp, Users, Package } from "lucide-react
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { DataOwnershipCell } from "@/components/ui/data-ownership-badge";
 
 export default function Payments() {
   const { data: payouts, isLoading: payoutsLoading } = useQuery({
@@ -201,6 +202,7 @@ export default function Payments() {
                         <TableHead>Net Paid</TableHead>
                         <TableHead>Method</TableHead>
                         <TableHead>Reference</TableHead>
+                        <TableHead>Created By</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -216,6 +218,9 @@ export default function Payments() {
                             <Badge variant="outline">{payout.method}</Badge>
                           </TableCell>
                           <TableCell>{payout.reference_number || '-'}</TableCell>
+                          <TableCell>
+                            <DataOwnershipCell tableName="payouts" recordId={payout.id} />
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -248,6 +253,7 @@ export default function Payments() {
                         <TableHead>Type</TableHead>
                         <TableHead>Method</TableHead>
                         <TableHead>Purpose</TableHead>
+                        <TableHead>Created By</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -266,6 +272,9 @@ export default function Payments() {
                             <Badge variant="outline">{payment.payment_method}</Badge>
                           </TableCell>
                           <TableCell>{payment.purpose}</TableCell>
+                          <TableCell>
+                            <DataOwnershipCell tableName="cash_payments" recordId={payment.id} />
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -297,6 +306,7 @@ export default function Payments() {
                         <TableHead>Farmer</TableHead>
                         <TableHead>Quantity</TableHead>
                         <TableHead>Loan Created</TableHead>
+                        <TableHead>Created By</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -309,6 +319,9 @@ export default function Payments() {
                           <TableCell>{distribution.quantity} {distribution.input_items?.unit}</TableCell>
                           <TableCell>
                             <Badge variant="default">Yes</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <DataOwnershipCell tableName="input_distributions" recordId={distribution.id} />
                           </TableCell>
                         </TableRow>
                       ))}
@@ -341,6 +354,7 @@ export default function Payments() {
                         <TableHead>Amount</TableHead>
                         <TableHead>Balance After</TableHead>
                         <TableHead>Season</TableHead>
+                        <TableHead>Created By</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -358,6 +372,9 @@ export default function Payments() {
                           </TableCell>
                           <TableCell>MWK {ledger.balance_after?.toFixed(2) || '0.00'}</TableCell>
                           <TableCell>{ledger.seasons?.name || '-'}</TableCell>
+                          <TableCell>
+                            <DataOwnershipCell tableName="loan_ledgers" recordId={ledger.id} />
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
