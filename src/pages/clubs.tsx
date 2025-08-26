@@ -350,6 +350,7 @@ export default function Clubs() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Club ID</TableHead>
                         <TableHead>Club Name</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Location</TableHead>
@@ -363,6 +364,7 @@ export default function Clubs() {
                     <TableBody>
                       {clubs.map((club) => (
                         <TableRow key={club.id}>
+                          <TableCell className="font-mono text-sm text-muted-foreground">{club.id.substring(0, 8)}</TableCell>
                           <TableCell className="font-medium">{club.name}</TableCell>
                           <TableCell>
                             <Badge variant="outline">{club.club_type}</Badge>

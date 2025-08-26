@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -124,10 +125,10 @@ serve(async (req) => {
       console.log('Season fetch failed, continuing without season')
     }
 
-    console.log('Active season:', activeSeason?.id)
+    console.log('Active season:', (activeSeason as any)?.id)
 
     // Calculate outstanding loan balance for this farmer group
-    let loans = []
+    let loans: any[] = []
     let totalOutstanding = 0
     
     try {
@@ -188,25 +189,59 @@ serve(async (req) => {
     console.log('Creating payout record using database function...')
     
     try {
-      // Use the database function that temporarily disables audit triggers
-      const { data: payoutResult, error: payoutError } = await supabaseClient
-        .rpc('create_payout_direct', {
-          delivery_id: deliveryId,
-          gross_amount: grossAmount,
-          loan_deduction: loanDeduction,
-          net_paid: netPaid,
-          method: paymentMethod,
-          reference_number: referenceNumber,
-          created_by: officerId
-        })
+      // Create payout record directly to avoid RPC function issues
+      // Use a try-catch approach to handle audit trigger issues
+      let payoutResult = null
+      let payoutError = null
+      
+      try {
+        // First attempt: Try with audit trigger enabled
+        const result = await supabaseClient
+          .from('payouts')
+          .insert({
+            delivery_id: deliveryId,
+            gross_amount: grossAmount,
+            loan_deduction: loanDeduction,
+            net_paid: netPaid,
+            method: paymentMethod,
+            reference_number: referenceNumber || null,
+            created_by: officerId
+          })
+          .select()
+          .single()
+        
+        payoutResult = result.data
+        payoutError = result.error
+      } catch (firstError) {
+        console.log('First attempt failed, trying alternative approach:', firstError)
+        
+        // Second attempt: Try with a different approach using raw SQL
+        try {
+          const { data, error } = await supabaseClient.rpc('create_payout_safe', {
+            p_delivery_id: deliveryId,
+            p_gross_amount: grossAmount,
+            p_loan_deduction: loanDeduction,
+            p_net_paid: netPaid,
+            p_method: paymentMethod,
+            p_reference_number: referenceNumber || null,
+            p_created_by: officerId
+          })
+          
+          payoutResult = data
+          payoutError = error
+        } catch (secondError) {
+          console.log('Second attempt also failed:', secondError)
+          payoutError = secondError
+        }
+      }
 
       if (payoutError) {
-        console.error('Database function failed:', payoutError)
+        console.error('Payout creation failed:', payoutError)
         throw new Error(`Failed to create payout: ${payoutError.message}`)
       }
       
       payout = payoutResult
-      console.log('Payout created successfully using database function:', payout)
+      console.log('Payout created successfully:', payout)
       
     } catch (error) {
       console.error('Payout creation exception:', error)
@@ -222,17 +257,17 @@ serve(async (req) => {
       for (const loan of loans) {
         if (remainingDeduction <= 0) break
         
-        const deductionAmount = Math.min(remainingDeduction, loan.outstanding_balance)
-        const newBalance = loan.outstanding_balance - deductionAmount
+        const deductionAmount = Math.min(remainingDeduction, (loan as any).outstanding_balance)
+        const newBalance = (loan as any).outstanding_balance - deductionAmount
         
-        console.log('Processing loan:', { loanId: loan.id, deductionAmount, newBalance })
+        console.log('Processing loan:', { loanId: (loan as any).id, deductionAmount, newBalance })
         
         // Update loan balance directly
         try {
           const { error: updateError } = await supabaseClient
             .from('loans')
             .update({ outstanding_balance: newBalance })
-            .eq('id', loan.id)
+            .eq('id', (loan as any).id)
           
           if (updateError) {
             console.error('Loan update error:', updateError)
@@ -246,13 +281,13 @@ serve(async (req) => {
         try {
           const ledgerData = {
             farmer_id: finalDelivery.farmer_id,
-            season_id: activeSeason?.id,
-            loan_id: loan.id,
+            season_id: (activeSeason as any)?.id,
+            loan_id: (loan as any).id,
             entry_type: 'sale_deduction',
             amount: -deductionAmount, // Negative for deduction
             balance_after: newBalance,
             reference_table: 'payouts',
-            reference_id: payout.id,
+            reference_id: (payout as any)?.id,
             created_by: officerId
           }
           
