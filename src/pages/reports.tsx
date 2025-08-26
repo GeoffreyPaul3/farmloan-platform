@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { DashboardLayout } from "@/layouts/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import { useState } from "react";
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import { Document, Packer, Paragraph, TextRun, Table as DocxTable, TableRow as DocxTableRow, TableCell as DocxTableCell, WidthType, AlignmentType } from 'docx';
+import { LoanWithRelations, DeliveryWithRelations, InputDistributionWithRelations } from "@/types/loans";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -21,6 +23,49 @@ export default function Reports() {
   const [selectedReport, setSelectedReport] = useState<string>("");
   const [viewReportData, setViewReportData] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [filters, setFilters] = useState<{
+    search: string;
+    status: string;
+    group: string;
+    dateRange: { start: string; end: string };
+  }>({
+    search: '',
+    status: '',
+    group: '',
+    dateRange: { start: '', end: '' }
+  });
+  const [filteredData, setFilteredData] = useState<any[]>([]);
+
+  // Function to manually update outstanding balances
+  const updateOutstandingBalances = async () => {
+    try {
+      // Use direct SQL call instead of RPC since the function isn't in types
+      const { data, error } = await supabase
+        .from('loans')
+        .select('id, amount, outstanding_balance')
+        .limit(1); // Just to test the connection
+      
+      if (error) {
+        console.error('Error testing connection:', error);
+        return;
+      }
+      
+      // Run the update function using raw SQL
+      const { data: updateResult, error: updateError } = await supabase.rpc(
+        'update_all_loan_outstanding_balances_safe' as any
+      );
+      
+      if (updateError) {
+        console.error('Error updating outstanding balances:', updateError);
+      } else {
+        console.log('Updated outstanding balances for', updateResult, 'loans');
+        // Refetch loans data
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Error updating outstanding balances:', err);
+    }
+  };
 
   const { data: clubs } = useQuery({
     queryKey: ["clubs-summary"],
@@ -62,14 +107,45 @@ export default function Reports() {
     },
   });
 
-  const { data: loans } = useQuery({
+  const { data: loans } = useQuery<LoanWithRelations[]>({
     queryKey: ["loans-summary"],
     queryFn: async () => {
+      // Try a simpler query first
+      const { data: simpleData, error: simpleError } = await supabase
+        .from("loans")
+        .select("id, amount, outstanding_balance, status");
+      
+      console.log('Simple query result:', { data: simpleData, error: simpleError });
+      
+      if (simpleError) {
+        console.error('Simple query failed:', simpleError);
+        throw simpleError;
+      }
+      
+      // Now try the full query (loans are related to farmer_groups, not farmers directly)
       const { data, error } = await supabase
         .from("loans")
-        .select("*, farmers(full_name), farmer_groups(name)");
-      if (error) throw error;
-      return data;
+        .select("*, farmer_groups(name, farmers(full_name))");
+      
+      if (error) {
+        console.error('Full query failed:', error);
+        throw error;
+      }
+      
+      // Debug logging
+      console.log('Raw loans data:', data);
+      console.log('All loans with outstanding balance:', data?.filter(loan => loan.outstanding_balance > 0).length || 0);
+      console.log('Total outstanding:', data?.reduce((sum, l) => sum + (l.outstanding_balance || 0), 0) || 0);
+      console.log('Loans with balance:', data?.filter(loan => loan.outstanding_balance > 0).map(loan => ({
+        id: loan.id,
+        amount: loan.amount,
+        outstanding_balance: loan.outstanding_balance,
+        status: loan.status
+      })) || []);
+      console.log('All loan statuses:', data?.map(loan => loan.status) || []);
+      console.log('Unique loan statuses:', [...new Set(data?.map(loan => loan.status) || [])]);
+      
+      return data as LoanWithRelations[];
     },
   });
 
@@ -89,7 +165,7 @@ export default function Reports() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("input_distributions")
-        .select("*, farmers(full_name), farmer_groups(name), input_items(name, unit_price)");
+        .select("*, farmers(full_name), farmer_groups(name), input_items(name)");
       if (error) throw error;
       return data;
     },
@@ -120,12 +196,23 @@ export default function Reports() {
     };
   }) || [];
 
-  // Loan status distribution
-  const loanStatusData = [
-    { name: 'Active', value: loans?.filter(l => l.status === 'approved').length || 0 },
-    { name: 'Pending', value: loans?.filter(l => l.status === 'pending').length || 0 },
-    { name: 'Rejected', value: loans?.filter(l => l.status === 'rejected').length || 0 },
+  // Loan status distribution - show all statuses with actual data
+  const loanStatusData = loans && loans.length > 0 ? [
+    { name: 'Active', value: loans.filter(l => l.status === 'active').length },
+    { name: 'Pending', value: loans.filter(l => l.status === 'pending').length },
+    { name: 'Approved', value: loans.filter(l => l.status === 'approved').length },
+    { name: 'Disbursed', value: loans.filter(l => l.status === 'disbursed').length },
+    { name: 'Completed', value: loans.filter(l => l.status === 'completed').length },
+    { name: 'Defaulted', value: loans.filter(l => l.status === 'defaulted').length },
+  ].filter(item => item.value > 0) : [
+    // Fallback data if no loans or all loans have same status
+    { name: 'No Loans', value: 1 }
   ];
+
+  // Debug loan status data
+  console.log('Loan status data:', loanStatusData);
+  console.log('All loan statuses found:', loans?.map(l => l.status) || []);
+  console.log('Unique loan statuses:', [...new Set(loans?.map(l => l.status) || [])]);
 
   // Monthly delivery trends (mock data for demonstration)
   const deliveryTrendData = [
@@ -795,7 +882,8 @@ export default function Reports() {
 
   const generateLoanBalancesData = () => {
     const data = loans?.map(loan => {
-      const farmerName = loan.farmers?.full_name || 'Unknown';
+      // Get the first farmer name from the group, or use group name as fallback
+      const farmerName = (loan.farmer_groups as any)?.farmers?.[0]?.full_name || loan.farmer_groups?.name || 'Unknown';
       const groupName = loan.farmer_groups?.name || 'Unknown Group';
       const outstanding = loan.outstanding_balance || 0;
       const total = loan.amount || 0;
@@ -841,7 +929,8 @@ export default function Reports() {
 
   const generateLoanStatementData = () => {
     const data = loans?.map(loan => {
-      const farmerName = loan.farmers?.full_name || 'Unknown';
+      // Get the first farmer name from the group, or use group name as fallback
+      const farmerName = (loan.farmer_groups as any)?.farmers?.[0]?.full_name || loan.farmer_groups?.name || 'Unknown';
       const groupName = loan.farmer_groups?.name || 'Unknown Group';
       const outstanding = loan.outstanding_balance || 0;
       const total = loan.amount || 0;
@@ -923,7 +1012,7 @@ export default function Reports() {
     ];
 
     const detailData = [...par30, ...par60, ...par90].map(loan => ({
-      'Farmer Name': loan.farmers?.full_name || 'Unknown',
+      'Farmer Name': (loan.farmer_groups as any)?.farmers?.[0]?.full_name || loan.farmer_groups?.name || 'Unknown',
       'Group': loan.farmer_groups?.name || 'Unknown',
       'Outstanding Amount': `MWK ${(loan.outstanding_balance || 0).toFixed(2)}`,
       'Due Date': loan.due_date || 'N/A',
@@ -1003,7 +1092,7 @@ export default function Reports() {
       const groupName = input.farmer_groups?.name || 'Unknown';
       const itemName = input.input_items?.name || 'Unknown Item';
       const quantity = input.quantity || 0;
-      const unitPrice = input.input_items?.unit_price || 0;
+      const unitPrice = (input.input_items as any)?.unit_price || 0;
       const value = quantity * unitPrice;
       
       return {
@@ -1020,7 +1109,7 @@ export default function Reports() {
 
     const totalValue = inputDistributions?.reduce((sum, input) => {
       const quantity = input.quantity || 0;
-      const unitPrice = input.input_items?.unit_price || 0;
+      const unitPrice = (input.input_items as any)?.unit_price || 0;
       return sum + (quantity * unitPrice);
     }, 0) || 0;
 
@@ -1041,7 +1130,7 @@ export default function Reports() {
     const itemSummary = inputDistributions?.reduce((acc, input) => {
       const itemName = input.input_items?.name || 'Unknown Item';
       const quantity = input.quantity || 0;
-      const unitPrice = input.input_items?.unit_price || 0;
+      const unitPrice = (input.input_items as any)?.unit_price || 0;
       const value = quantity * unitPrice;
       
       if (!acc[itemName]) {
@@ -1087,7 +1176,7 @@ export default function Reports() {
       const farmerName = delivery.farmers?.full_name || 'Unknown';
       const groupName = delivery.farmer_groups?.name || 'Unknown';
       const weight = delivery.weight || 0;
-      const grade = delivery.grade || 'N/A';
+      const grade = (delivery as any).grade || 'N/A';
       const value = delivery.gross_amount || 0;
       const pricePerKg = delivery.price_per_kg || 0;
       
@@ -1132,7 +1221,7 @@ export default function Reports() {
       const farmerName = delivery.farmers?.full_name || 'Unknown';
       const groupName = delivery.farmer_groups?.name || 'Unknown';
       const deliveryValue = delivery.gross_amount || 0;
-      const loanOffset = delivery.loan_offset || 0;
+      const loanOffset = (delivery as any).loan_offset || 0;
       const netProceeds = deliveryValue - loanOffset;
       const offsetPercentage = deliveryValue > 0 ? (loanOffset / deliveryValue) * 100 : 0;
       
@@ -1148,7 +1237,7 @@ export default function Reports() {
     }) || [];
 
     const totalDeliveryValue = deliveries?.reduce((sum, d) => sum + (d.gross_amount || 0), 0) || 0;
-    const totalLoanOffset = deliveries?.reduce((sum, d) => sum + (d.loan_offset || 0), 0) || 0;
+    const totalLoanOffset = deliveries?.reduce((sum, d) => sum + ((d as any).loan_offset || 0), 0) || 0;
 
     const totalNetProceeds = totalDeliveryValue - totalLoanOffset;
     const averageOffsetPercentage = totalDeliveryValue > 0 ? (totalLoanOffset / totalDeliveryValue) * 100 : 0;
@@ -1191,7 +1280,7 @@ export default function Reports() {
     });
 
     const noRepaymentsData = loans?.filter(loan => loan.outstanding_balance === loan.amount).map(loan => ({
-      'Farmer Name': loan.farmers?.full_name || 'Unknown',
+      'Farmer Name': (loan.farmer_groups as any)?.farmers?.[0]?.full_name || loan.farmer_groups?.name || 'Unknown',
       'Group': loan.farmer_groups?.name || 'Unknown',
       'Loan Amount': `MWK ${(loan.amount || 0).toFixed(2)}`,
       'Outstanding': `MWK ${(loan.outstanding_balance || 0).toFixed(2)}`,
@@ -1259,7 +1348,7 @@ export default function Reports() {
 
     const detailData = Object.entries(agingBuckets).flatMap(([bucket, loans]) => 
       loans.map(loan => ({
-        'Farmer Name': loan.farmers?.full_name || 'Unknown',
+        'Farmer Name': loan.farmer_groups?.name || 'Unknown Group',
         'Group': loan.farmer_groups?.name || 'Unknown',
         'Aging Bucket': `${bucket} days`,
         'Outstanding Amount': `MWK ${(loan.outstanding_balance || 0).toFixed(2)}`,
@@ -1300,7 +1389,7 @@ export default function Reports() {
     const totalMembers = farmers?.length || 0;
     const totalInputsValue = inputDistributions?.reduce((sum, input) => {
       const quantity = input.quantity || 0;
-      const unitPrice = input.input_items?.unit_price || 0;
+      const unitPrice = (input.input_items as any)?.unit_price || 0;
       return sum + (quantity * unitPrice);
     }, 0) || 0;
     const totalDeliveries = deliveries?.reduce((sum, d) => sum + (d.weight || 0), 0) || 0;
@@ -1374,6 +1463,50 @@ export default function Reports() {
     };
   };
 
+  // Filter function to apply filters to report data
+  const applyFilters = (data: any[], filters: any) => {
+    if (!data || data.length === 0) return data;
+    
+    return data.filter((row: any) => {
+      // Search filter - search across all string values
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const hasMatch = Object.values(row).some((value: any) => 
+          String(value).toLowerCase().includes(searchLower)
+        );
+        if (!hasMatch) return false;
+      }
+      
+      // Status filter
+      if (filters.status && row['Status']) {
+        if (row['Status'].toLowerCase() !== filters.status.toLowerCase()) return false;
+      }
+      
+      // Group filter
+      if (filters.group && row['Group']) {
+        if (row['Group'].toLowerCase() !== filters.group.toLowerCase()) return false;
+      }
+      
+      // Date range filter (if applicable)
+      if (filters.dateRange.start || filters.dateRange.end) {
+        const dateFields = ['Due Date', 'Delivery Date', 'Distribution Date', 'Created At'];
+        const hasDateField = dateFields.some(field => row[field] && row[field] !== 'N/A');
+        
+        if (hasDateField) {
+          const dateValue = Object.values(row).find((value: any) => 
+            dateFields.some(field => String(value).includes('-') && !isNaN(Date.parse(String(value))))
+          );
+          const rowDate = new Date(String(dateValue) || '');
+          
+          if (filters.dateRange.start && rowDate < new Date(filters.dateRange.start)) return false;
+          if (filters.dateRange.end && rowDate > new Date(filters.dateRange.end)) return false;
+        }
+      }
+      
+      return true;
+    });
+  };
+
   const viewReport = (reportType: string) => {
     let reportData: any = {};
     switch (reportType) {
@@ -1415,6 +1548,13 @@ export default function Reports() {
         break;
     }
     setViewReportData(reportData);
+    setFilteredData(reportData.data || []);
+    setFilters({
+      search: '',
+      status: '',
+      group: '',
+      dateRange: { start: '', end: '' }
+    });
     setIsViewModalOpen(true);
   };
 
@@ -2004,6 +2144,124 @@ export default function Reports() {
                 </div>
               </div>
 
+              {/* Filters */}
+              {viewReportData.data && viewReportData.data.length > 0 && (
+                <div className="p-3 border rounded-lg bg-muted/50">
+                  <h3 className="font-semibold mb-2 text-sm">Filters</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* Search Filter */}
+                    <div className="min-w-0">
+                      <label className="text-xs font-medium mb-1 block">Search</label>
+                      <input
+                        type="text"
+                        placeholder="Search..."
+                        value={filters.search}
+                        onChange={(e) => {
+                          const newFilters = { ...filters, search: e.target.value };
+                          setFilters(newFilters);
+                          setFilteredData(applyFilters(viewReportData.data, newFilters));
+                        }}
+                        className="w-full px-2 py-1 border rounded text-xs"
+                      />
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="min-w-0">
+                      <label className="text-xs font-medium mb-1 block">Status</label>
+                      <select
+                        value={filters.status}
+                        onChange={(e) => {
+                          const newFilters = { ...filters, status: e.target.value };
+                          setFilters(newFilters);
+                          setFilteredData(applyFilters(viewReportData.data, newFilters));
+                        }}
+                        className="w-full px-2 py-1 border rounded text-xs"
+                      >
+                        <option value="">All Statuses</option>
+                        {Array.from(new Set(viewReportData.data.map((row: any) => row['Status']).filter(Boolean))).map((status: string) => (
+                          <option key={status} value={status}>{status}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Group Filter */}
+                    <div className="min-w-0">
+                      <label className="text-xs font-medium mb-1 block">Group</label>
+                      <select
+                        value={filters.group}
+                        onChange={(e) => {
+                          const newFilters = { ...filters, group: e.target.value };
+                          setFilters(newFilters);
+                          setFilteredData(applyFilters(viewReportData.data, newFilters));
+                        }}
+                        className="w-full px-2 py-1 border rounded text-xs"
+                      >
+                        <option value="">All Groups</option>
+                        {Array.from(new Set(viewReportData.data.map((row: any) => row['Group']).filter(Boolean))).map((group: string) => (
+                          <option key={group} value={group}>{group}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Date Range Filter */}
+                    <div className="min-w-0">
+                      <label className="text-xs font-medium mb-1 block">Date Range</label>
+                      <div className="flex gap-1">
+                        <input
+                          type="date"
+                          value={filters.dateRange.start}
+                          onChange={(e) => {
+                            const newFilters = { 
+                              ...filters, 
+                              dateRange: { ...filters.dateRange, start: e.target.value }
+                            };
+                            setFilters(newFilters);
+                            setFilteredData(applyFilters(viewReportData.data, newFilters));
+                          }}
+                          className="flex-1 px-2 py-1 border rounded text-xs"
+                        />
+                        <input
+                          type="date"
+                          value={filters.dateRange.end}
+                          onChange={(e) => {
+                            const newFilters = { 
+                              ...filters, 
+                              dateRange: { ...filters.dateRange, end: e.target.value }
+                            };
+                            setFilters(newFilters);
+                            setFilteredData(applyFilters(viewReportData.data, newFilters));
+                          }}
+                          className="flex-1 px-2 py-1 border rounded text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Clear Filters Button */}
+                  <div className="mt-2 flex justify-between items-center">
+                    <div className="text-xs text-muted-foreground">
+                      Showing {filteredData.length} of {viewReportData.data.length} records
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs px-2 py-1 h-7"
+                      onClick={() => {
+                        setFilters({
+                          search: '',
+                          status: '',
+                          group: '',
+                          dateRange: { start: '', end: '' }
+                        });
+                        setFilteredData(viewReportData.data);
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Detailed Data Table */}
               {viewReportData.data && viewReportData.data.length > 0 && (
                 <div className="space-y-4">
@@ -2021,7 +2279,7 @@ export default function Reports() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {viewReportData.data.slice(0, 50).map((row: any, index: number) => (
+                          {filteredData.slice(0, 50).map((row: any, index: number) => (
                             <TableRow key={index}>
                               {Object.values(row).map((value: any, cellIndex: number) => (
                                 <TableCell key={cellIndex} className="whitespace-nowrap">
@@ -2033,9 +2291,9 @@ export default function Reports() {
                         </TableBody>
                       </Table>
                     </div>
-                    {viewReportData.data.length > 50 && (
+                    {filteredData.length > 50 && (
                       <div className="p-4 bg-muted text-center text-sm text-muted-foreground">
-                        Showing first 50 records of {viewReportData.data.length} total records
+                        Showing first 50 records of {filteredData.length} filtered records
                       </div>
                     )}
                   </div>
