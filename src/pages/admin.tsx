@@ -324,7 +324,8 @@ export default function Admin() {
   };
 
   // Redirect if not admin
-  if (userProfile?.role !== 'admin') {
+  if (userProfile && userProfile.role !== 'admin') {
+    toast.error("Admin access only. You’ve been redirected to the dashboard.");
     return <Navigate to="/dashboard" replace />;
   }
 
