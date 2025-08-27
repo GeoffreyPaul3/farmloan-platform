@@ -106,13 +106,6 @@ const Index = () => {
                 Get Started
                 <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Button>
-              <Button 
-                variant="outline" 
-                size="lg"
-                className="bg-background/50 backdrop-blur-sm hover:bg-background/80"
-              >
-                View Demo
-              </Button>
             </motion.div>
           </motion.div>
         </div>

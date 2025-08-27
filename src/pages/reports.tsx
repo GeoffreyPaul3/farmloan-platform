@@ -11,7 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TrendingUp, Users, AlertTriangle, CheckCircle, Download, FileText, FileSpreadsheet, File, Eye } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import { Document, Packer, Paragraph, TextRun, Table as DocxTable, TableRow as DocxTableRow, TableCell as DocxTableCell, WidthType, AlignmentType } from 'docx';
@@ -214,15 +214,43 @@ export default function Reports() {
   console.log('All loan statuses found:', loans?.map(l => l.status) || []);
   console.log('Unique loan statuses:', [...new Set(loans?.map(l => l.status) || [])]);
 
-  // Monthly delivery trends (mock data for demonstration)
-  const deliveryTrendData = [
-    { month: 'Jan', weight: 1200, value: 24000 },
-    { month: 'Feb', weight: 1800, value: 36000 },
-    { month: 'Mar', weight: 2200, value: 44000 },
-    { month: 'Apr', weight: 2800, value: 56000 },
-    { month: 'May', weight: 3200, value: 64000 },
-    { month: 'Jun', weight: 2900, value: 58000 },
-  ];
+  // Monthly delivery trends (real data from database)
+  const deliveryTrendData = useMemo(() => {
+    if (!deliveries || deliveries.length === 0) {
+      return [
+        { month: 'No Data', weight: 0, value: 0 }
+      ];
+    }
+
+    // Group deliveries by month
+    const monthlyData = deliveries.reduce((acc, delivery) => {
+      const deliveryDate = new Date(delivery.delivery_date || '');
+      const monthKey = deliveryDate.toLocaleDateString('en-US', { month: 'short' });
+      
+      if (!acc[monthKey]) {
+        acc[monthKey] = { weight: 0, value: 0 };
+      }
+      
+      acc[monthKey].weight += delivery.weight || 0;
+      acc[monthKey].value += delivery.gross_amount || 0;
+      
+      return acc;
+    }, {} as Record<string, { weight: number; value: number }>);
+
+    // Convert to array format and sort by month order
+    const monthOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const sortedData = Object.entries(monthlyData)
+      .sort(([a], [b]) => monthOrder.indexOf(a) - monthOrder.indexOf(b))
+      .map(([month, data]) => ({
+        month,
+        weight: data.weight,
+        value: data.value
+      }));
+
+    return sortedData.length > 0 ? sortedData : [
+      { month: 'No Data', weight: 0, value: 0 }
+    ];
+  }, [deliveries]);
 
   // Download functions
   const downloadReport = async (format: 'word' | 'excel' | 'pdf', reportType: string) => {

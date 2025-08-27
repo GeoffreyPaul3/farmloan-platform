@@ -20,8 +20,10 @@ export default function Deliveries() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showGradingDialog, setShowGradingDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showPaymentMethodDialog, setShowPaymentMethodDialog] = useState(false);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
   const [selectedDelivery, setSelectedDelivery] = useState<any>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('bank');
 
   const { data: deliveries, isLoading, refetch } = useQuery({
     queryKey: ["deliveries"],
@@ -73,6 +75,19 @@ export default function Deliveries() {
       const { data, error } = await supabase
         .from("grading_entries")
         .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: payouts } = useQuery({
+    queryKey: ["payouts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payouts")
+        .select("delivery_id, method, created_at")
         .order("created_at", { ascending: false });
       
       if (error) throw error;
@@ -166,17 +181,29 @@ export default function Deliveries() {
       const response = await supabase.functions.invoke('process-delivery', {
         body: {
           deliveryId,
-          paymentMethod: 'bank'
+          paymentMethod: selectedPaymentMethod
         }
       });
 
       if (response.error) throw response.error;
       
       toast.success("Payment processed successfully!");
+      setShowPaymentMethodDialog(false);
+      setSelectedPaymentMethod('bank'); // Reset to default
       refetch();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error processing payment:", error);
-      toast.error("Failed to process payment");
+      
+      // Check for specific error messages from the backend
+      if (error.message && error.message.includes('already been processed')) {
+        toast.error("This delivery has already been processed for payment");
+      } else if (error.message && error.message.includes('not found')) {
+        toast.error("Delivery not found. Please refresh and try again.");
+      } else if (error.message && error.message.includes('Invalid delivery')) {
+        toast.error("Invalid delivery data. Please check the delivery details.");
+      } else {
+        toast.error("Failed to process payment. Please try again.");
+      }
     }
   };
 
@@ -410,6 +437,8 @@ export default function Deliveries() {
                 <TableBody>
                   {deliveries.map((delivery) => {
                     const hasGrading = gradingEntries?.some(g => g.delivery_id === delivery.id);
+                    const hasPayment = payouts?.some(p => p.delivery_id === delivery.id);
+                    const paymentMethod = payouts?.find(p => p.delivery_id === delivery.id)?.method;
                     
                     return (
                       <TableRow key={delivery.id}>
@@ -426,6 +455,13 @@ export default function Deliveries() {
                             ) : (
                               <Badge variant="secondary">Pending</Badge>
                             )}
+                            {hasPayment ? (
+                              <Badge variant="outline" className="text-green-600 border-green-600">
+                                Paid ({paymentMethod})
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">Unpaid</Badge>
+                            )}
                             <Button 
                               size="sm" 
                               variant="outline"
@@ -436,13 +472,27 @@ export default function Deliveries() {
                             >
                               Add Grading
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => handleProcessPayment(delivery.id)}
-                            >
-                              Process Payment
-                            </Button>
+                            {!hasPayment ? (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedDeliveryId(delivery.id);
+                                  setShowPaymentMethodDialog(true);
+                                }}
+                              >
+                                Process Payment
+                              </Button>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                disabled
+                                title="Payment already processed"
+                              >
+                                Already Paid
+                              </Button>
+                            )}
                             <CanEditButton 
                               tableName="deliveries" 
                               recordId={delivery.id} 
@@ -592,6 +642,54 @@ export default function Deliveries() {
                 <Button type="submit">Update Delivery</Button>
               </div>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showPaymentMethodDialog} onOpenChange={setShowPaymentMethodDialog}>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Select Payment Method</DialogTitle>
+              <DialogDescription>
+                Choose how you want to process the payment for this delivery
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="payment_method">Payment Method</Label>
+                <Select 
+                  value={selectedPaymentMethod} 
+                  onValueChange={setSelectedPaymentMethod}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bank">Bank Transfer</SelectItem>
+                    <SelectItem value="cash">Cash Payment</SelectItem>
+                    <SelectItem value="mobile">Mobile Money</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowPaymentMethodDialog(false);
+                    setSelectedPaymentMethod('bank');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="button"
+                  onClick={() => handleProcessPayment(selectedDeliveryId!)}
+                  disabled={!selectedDeliveryId}
+                >
+                  Process Payment
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
