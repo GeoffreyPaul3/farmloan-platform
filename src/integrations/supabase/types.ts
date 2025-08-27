@@ -133,7 +133,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "seasons"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       club_assignments: {
@@ -163,6 +163,7 @@ export type Database = {
       deliveries: {
         Row: {
           created_at: string
+          created_by: string
           delivery_date: string
           farmer_group_id: string
           farmer_id: string
@@ -176,6 +177,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          created_by?: string
           delivery_date?: string
           farmer_group_id: string
           farmer_id: string
@@ -189,6 +191,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          created_by?: string
           delivery_date?: string
           farmer_group_id?: string
           farmer_id?: string
@@ -644,12 +647,14 @@ export type Database = {
           acknowledgement_path: string | null
           acknowledgement_received: boolean
           created_at: string
+          created_by: string
           distributed_by: string
           distribution_date: string
           farmer_group_id: string
           farmer_id: string | null
           id: string
           item_id: string
+          loan_id: string | null
           notes: string | null
           quantity: number
           season_id: string | null
@@ -659,12 +664,14 @@ export type Database = {
           acknowledgement_path?: string | null
           acknowledgement_received?: boolean
           created_at?: string
+          created_by?: string
           distributed_by: string
           distribution_date?: string
           farmer_group_id: string
           farmer_id?: string | null
           id?: string
           item_id: string
+          loan_id?: string | null
           notes?: string | null
           quantity: number
           season_id?: string | null
@@ -674,12 +681,14 @@ export type Database = {
           acknowledgement_path?: string | null
           acknowledgement_received?: boolean
           created_at?: string
+          created_by?: string
           distributed_by?: string
           distribution_date?: string
           farmer_group_id?: string
           farmer_id?: string | null
           id?: string
           item_id?: string
+          loan_id?: string | null
           notes?: string | null
           quantity?: number
           season_id?: string | null
@@ -705,6 +714,20 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "input_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "input_distributions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "input_stock_summary"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "input_distributions_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "loans"
             referencedColumns: ["id"]
           },
           {
@@ -799,6 +822,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "input_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "input_stock_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "input_stock_summary"
+            referencedColumns: ["item_id"]
           },
           {
             foreignKeyName: "input_stock_season_id_fkey"
@@ -937,6 +967,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          action_url: string | null
+          created_at: string | null
+          id: string
+          message: string
+          metadata: Json | null
+          read: boolean | null
+          title: string
+          type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          created_at?: string | null
+          id?: string
+          message: string
+          metadata?: Json | null
+          read?: boolean | null
+          title: string
+          type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string
+          metadata?: Json | null
+          read?: boolean | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       payouts: {
         Row: {
@@ -1101,14 +1170,244 @@ export type Database = {
         }
         Relationships: []
       }
+      upload_history: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_details: Json | null
+          failed_records: number | null
+          file_name: string
+          file_size: number | null
+          id: string
+          started_at: string | null
+          status: string
+          successful_records: number | null
+          total_records: number | null
+          updated_at: string | null
+          upload_type: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_details?: Json | null
+          failed_records?: number | null
+          file_name: string
+          file_size?: number | null
+          id?: string
+          started_at?: string | null
+          status: string
+          successful_records?: number | null
+          total_records?: number | null
+          updated_at?: string | null
+          upload_type: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_details?: Json | null
+          failed_records?: number | null
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          successful_records?: number | null
+          total_records?: number | null
+          updated_at?: string | null
+          upload_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      data_ownership_view: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          created_by_name: string | null
+          ownership_label: string | null
+          record_id: string | null
+          record_name: string | null
+          table_name: string | null
+        }
+        Relationships: []
+      }
+      input_stock_summary: {
+        Row: {
+          category: string | null
+          first_received_date: string | null
+          item_id: string | null
+          item_name: string | null
+          last_received_date: string | null
+          stock_records_count: number | null
+          total_quantity: number | null
+          total_value: number | null
+          unit: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      calculate_distribution_cost: {
+        Args: { item_id: string; quantity: number }
+        Returns: number
+      }
+      calculate_loan_outstanding_balance: {
+        Args: { loan_id: string }
+        Returns: number
+      }
+      can_edit_record: {
+        Args: { record_id: string; table_name: string; user_id?: string }
+        Returns: boolean
+      }
+      can_user_access_data: {
+        Args: { user_id?: string }
+        Returns: boolean
+      }
+      check_stock_availability: {
+        Args: { item_id: string; requested_quantity: number }
+        Returns: boolean
+      }
+      create_cash_payment_loan: {
+        Args: {
+          amount: number
+          created_by: string
+          farmer_group_id: string
+          farmer_id: string
+          payment_date: string
+          payment_id: string
+          purpose: string
+        }
+        Returns: string
+      }
+      create_distribution_loan: {
+        Args: {
+          distributed_by: string
+          distribution_id: string
+          farmer_group_id: string
+          farmer_id: string
+          item_id: string
+          quantity: number
+        }
+        Returns: string
+      }
+      create_loan_ledger_with_audit: {
+        Args: {
+          amount: number
+          balance_after: number
+          created_by: string
+          entry_type: string
+          farmer_id: string
+          loan_id: string
+          reference_id: string
+          reference_table: string
+          season_id: string
+        }
+        Returns: Json
+      }
+      create_payout_direct: {
+        Args: {
+          created_by: string
+          delivery_id: string
+          gross_amount: number
+          loan_deduction: number
+          method: string
+          net_paid: number
+          reference_number: string
+        }
+        Returns: string
+      }
+      create_payout_raw_sql: {
+        Args: {
+          created_by: string
+          delivery_id: string
+          gross_amount: number
+          loan_deduction: number
+          method: string
+          net_paid: number
+          reference_number: string
+        }
+        Returns: Json
+      }
+      create_payout_safe: {
+        Args: {
+          p_created_by: string
+          p_delivery_id: string
+          p_gross_amount: number
+          p_loan_deduction: number
+          p_method: string
+          p_net_paid: number
+          p_reference_number: string
+        }
+        Returns: Json
+      }
+      create_payout_with_audit: {
+        Args: {
+          created_by: string
+          delivery_id: string
+          gross_amount: number
+          loan_deduction: number
+          method: string
+          net_paid: number
+          reference_number: string
+        }
+        Returns: Json
+      }
+      create_policy_if_not_exists: {
+        Args: {
+          policy_definition: string
+          policy_name: string
+          table_name: string
+        }
+        Returns: undefined
+      }
+      disable_audit_trigger: {
+        Args: { table_name: string }
+        Returns: undefined
+      }
+      enable_audit_trigger: {
+        Args: { table_name: string }
+        Returns: undefined
+      }
+      get_available_stock: {
+        Args: { item_uuid: string }
+        Returns: number
+      }
+      get_data_ownership_info: {
+        Args: { record_id: string; table_name: string }
+        Returns: {
+          created_at: string
+          created_by: string
+          created_by_name: string
+          is_own_data: boolean
+        }[]
+      }
+      get_item_stock_level: {
+        Args: { item_id: string }
+        Returns: number
+      }
+      get_stock_movement_history: {
+        Args: { end_date?: string; item_uuid?: string; start_date?: string }
+        Returns: {
+          date: string
+          notes: string
+          quantity: number
+          reference_id: string
+          reference_type: string
+          type: string
+          unit_cost: number
+        }[]
+      }
       get_user_role: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      is_admin: {
+        Args: { user_id?: string }
+        Returns: boolean
       }
       is_user_allowed_storage_object: {
         Args: { _user_id?: string; bucket: string; object_name: string }
@@ -1120,6 +1419,30 @@ export type Database = {
       }
       loan_belongs_to_user: {
         Args: { _loan_id: string; _user_id?: string }
+        Returns: boolean
+      }
+      reduce_stock_after_distribution: {
+        Args: { item_id: string; quantity: number }
+        Returns: undefined
+      }
+      test_input_distributions_fixed: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      test_input_distributions_insert: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      update_all_loan_outstanding_balances_safe: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      update_loan_balance_with_audit: {
+        Args: { created_by: string; loan_id: string; new_balance: number }
+        Returns: boolean
+      }
+      user_can_access_record: {
+        Args: { record_id: string; table_name: string; user_id?: string }
         Returns: boolean
       }
     }
