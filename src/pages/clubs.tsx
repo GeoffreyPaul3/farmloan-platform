@@ -27,6 +27,7 @@ export default function Clubs() {
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
   const [selectedClub, setSelectedClub] = useState<any>(null);
   const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [selectedClubForView, setSelectedClubForView] = useState<string>("");
 
   const { data: clubs, isLoading, refetch } = useQuery({
     queryKey: ["farmer-groups"],
@@ -337,6 +338,7 @@ export default function Clubs() {
           <TabsList>
             <TabsTrigger value="clubs">Registered Clubs</TabsTrigger>
             <TabsTrigger value="members">Club Members</TabsTrigger>
+            <TabsTrigger value="members-by-club">Members by Club</TabsTrigger>
           </TabsList>
           
           <TabsContent value="clubs">
@@ -476,6 +478,86 @@ export default function Clubs() {
                     <FileText className="h-12 w-12 mx-auto mb-4" />
                     <p>No members registered yet</p>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="members-by-club">
+            <Card>
+              <CardHeader>
+                <CardTitle>Members by Club</CardTitle>
+                <CardDescription>Select a club to view its members</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="club_filter">Club</Label>
+                    <Select value={selectedClubForView} onValueChange={setSelectedClubForView}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select club" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clubs?.map((club) => (
+                          <SelectItem key={club.id} value={club.id}>{club.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {selectedClubForView ? (
+                  (() => {
+                    const filtered = (farmers || []).filter(f => f.farmer_group_id === selectedClubForView);
+                    return filtered.length ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>National ID</TableHead>
+                            <TableHead>Phone</TableHead>
+                            <TableHead>Farm Size</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Joined</TableHead>
+                            <TableHead>Created By</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filtered.map((farmer) => (
+                            <TableRow key={farmer.id}>
+                              <TableCell className="font-medium">{farmer.full_name}</TableCell>
+                              <TableCell>{farmer.national_id || '-'}</TableCell>
+                              <TableCell>{farmer.phone}</TableCell>
+                              <TableCell>{farmer.farm_size_acres ? `${farmer.farm_size_acres} acres` : '-'}</TableCell>
+                              <TableCell>
+                                <Badge variant={farmer.status === 'active' ? 'default' : 'secondary'}>
+                                  {farmer.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{farmer.join_date ? format(new Date(farmer.join_date), "MMM dd, yyyy") : '-'}</TableCell>
+                              <TableCell>
+                                <DataOwnershipCell tableName="farmers" recordId={farmer.id} />
+                              </TableCell>
+                              <TableCell>
+                                <CanEditButton 
+                                  tableName="farmers" 
+                                  recordId={farmer.id} 
+                                  onEdit={() => {
+                                    setSelectedMember(farmer);
+                                    setShowEditMemberDialog(true);
+                                  }}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">No members found in this club.</div>
+                    );
+                  })()
+                ) : (
+                  <div className="text-sm text-muted-foreground">Select a club to view members.</div>
                 )}
               </CardContent>
             </Card>
