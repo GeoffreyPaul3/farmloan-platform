@@ -28,6 +28,9 @@ export default function Clubs() {
   const [selectedClub, setSelectedClub] = useState<any>(null);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [selectedClubForView, setSelectedClubForView] = useState<string>("");
+  const [membersSearch, setMembersSearch] = useState<string>("");
+  const [membersStatus, setMembersStatus] = useState<string>("");
+  const [membersGender, setMembersGender] = useState<string>("");
 
   const { data: clubs, isLoading, refetch } = useQuery({
     queryKey: ["farmer-groups"],
@@ -489,7 +492,7 @@ export default function Clubs() {
                 <CardDescription>Select a club to view its members</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
                     <Label htmlFor="club_filter">Club</Label>
                     <Select value={selectedClubForView} onValueChange={setSelectedClubForView}>
@@ -503,11 +506,63 @@ export default function Clubs() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div>
+                    <Label htmlFor="member_search">Search</Label>
+                    <Input 
+                      id="member_search"
+                      placeholder="Search name, phone, national ID"
+                      value={membersSearch}
+                      onChange={(e) => setMembersSearch(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="member_status">Status</Label>
+                    <Select value={membersStatus} onValueChange={(v) => setMembersStatus(v === 'all' ? '' : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="member_gender">Gender</Label>
+                    <Select value={membersGender} onValueChange={(v) => setMembersGender(v === 'all' ? '' : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All genders" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 {selectedClubForView ? (
                   (() => {
-                    const filtered = (farmers || []).filter(f => f.farmer_group_id === selectedClubForView);
+                    let filtered = (farmers || []).filter(f => f.farmer_group_id === selectedClubForView);
+                    
+                    if (membersSearch.trim()) {
+                      const q = membersSearch.trim().toLowerCase();
+                      filtered = filtered.filter(f =>
+                        String(f.full_name || '').toLowerCase().includes(q) ||
+                        String(f.phone || '').toLowerCase().includes(q) ||
+                        String(f.national_id || '').toLowerCase().includes(q)
+                      );
+                    }
+                    
+                    if (membersStatus) {
+                      filtered = filtered.filter(f => String(f.status || '').toLowerCase() === membersStatus);
+                    }
+                    
+                    if (membersGender) {
+                      filtered = filtered.filter(f => String(f.gender || '').toLowerCase() === membersGender);
+                    }
                     return filtered.length ? (
                       <Table>
                         <TableHeader>
