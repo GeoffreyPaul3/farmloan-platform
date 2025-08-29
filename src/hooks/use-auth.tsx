@@ -60,50 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     });
-    try {
-      // Fire-and-forget pending email via Edge Function
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-user`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ type: 'pending', email, full_name: fullName }),
-      });
-    } catch (_) {
-      // Don't block signup on email failure
-    }
     return { error };
   };
 
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut({ scope: 'local' });
-    } catch (_) {}
-
-    // Force-clear any Supabase auth tokens in storage as a safety net
-    try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i) as string;
-        if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach((k) => localStorage.removeItem(k));
-
-      const sessionKeysToRemove: string[] = [];
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i) as string;
-        if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-          sessionKeysToRemove.push(key);
-        }
-      }
-      sessionKeysToRemove.forEach((k) => sessionStorage.removeItem(k));
-    } catch (_) {}
-
-    // Hard redirect to login to ensure clean state
-    window.location.replace('/auth');
+    await supabase.auth.signOut();
   };
 
   return (

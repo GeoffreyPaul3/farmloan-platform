@@ -22,7 +22,6 @@ import Reports from "./pages/reports";
 import Admin from "./pages/admin";
 import Profile from "./pages/profile";
 import AuditTrail from "./pages/audit-trail";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -37,20 +36,20 @@ function App() {
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                <Route path="/clubs" element={<ProtectedRoute><Clubs /></ProtectedRoute>} />
-                <Route path="/seasons" element={<ProtectedRoute><Seasons /></ProtectedRoute>} />
-                <Route path="/inputs" element={<ProtectedRoute><Inputs /></ProtectedRoute>} />
-                <Route path="/field-visits" element={<ProtectedRoute><FieldVisits /></ProtectedRoute>} />
-                <Route path="/deliveries" element={<ProtectedRoute><Deliveries /></ProtectedRoute>} />
-                <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-                <Route path="/equipment" element={<ProtectedRoute><Equipment /></ProtectedRoute>} />
-                <Route path="/uploads" element={<ProtectedRoute><Uploads /></ProtectedRoute>} />
-                <Route path="/audit" element={<ProtectedRoute><Audit /></ProtectedRoute>} />
-                <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-                <Route path="/admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
-                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                <Route path="/audit-trail" element={<ProtectedRoute><AuditTrail /></ProtectedRoute>} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/clubs" element={<Clubs />} />
+                <Route path="/seasons" element={<Seasons />} />
+                <Route path="/inputs" element={<Inputs />} />
+                <Route path="/field-visits" element={<FieldVisits />} />
+                <Route path="/deliveries" element={<Deliveries />} />
+                <Route path="/payments" element={<Payments />} />
+                <Route path="/equipment" element={<Equipment />} />
+                <Route path="/uploads" element={<Uploads />} />
+                <Route path="/audit" element={<Audit />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/audit-trail" element={<AuditTrail />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AuthProvider>
