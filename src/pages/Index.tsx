@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
 import { Link, Navigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/farm-logo.png"
 
 const features = [
@@ -31,10 +33,25 @@ const features = [
 
 const Index = () => {
   const { user } = useAuth();
+  const { data: profile } = useQuery({
+    queryKey: ["index-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("approved")
+        .eq("user_id", user.id)
+        .single();
+      return data as { approved: boolean } | null;
+    },
+    enabled: !!user?.id,
+  });
 
-  // Redirect if already authenticated
-  if (user) {
+  if (user && profile?.approved) {
     return <Navigate to="/dashboard" replace />;
+  }
+  if (user && profile && profile.approved === false) {
+    return <Navigate to="/auth?status=pending" replace />;
   }
 
   return (

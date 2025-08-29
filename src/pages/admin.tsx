@@ -44,6 +44,7 @@ interface UserFormData {
   full_name: string;
   role: 'admin' | 'staff';
   phone: string;
+  password?: string;
 }
 
 interface SystemStats {
@@ -73,7 +74,8 @@ export default function Admin() {
     email: "",
     full_name: "",
     role: "staff",
-    phone: ""
+    phone: "",
+    password: "",
   });
   const queryClient = useQueryClient();
 
@@ -92,6 +94,17 @@ export default function Admin() {
       toast.success("User approved successfully");
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+      const approvedUser = (users || []).find(u => u.user_id === userId);
+      if (approvedUser?.email) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-user`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ type: 'approved', email: approvedUser.email, full_name: approvedUser.full_name }),
+        }).catch(() => {});
+      }
     },
     onError: (error) => {
       toast.error("Failed to approve user");
@@ -203,22 +216,31 @@ export default function Admin() {
   // User management mutations
   const createUserMutation = useMutation({
     mutationFn: async (userData: UserFormData) => {
-      const { error } = await supabase.auth.admin.createUser({
-        email: userData.email,
-        password: "tempPassword123!",
-        email_confirm: true,
-        user_metadata: {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: userData.email,
           full_name: userData.full_name,
           role: userData.role,
           phone: userData.phone,
-        }
+          password: userData.password,
+        }),
       });
-      if (error) throw error;
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(text);
+      }
     },
     onSuccess: () => {
       toast.success("User created successfully");
       setShowUserDialog(false);
-      setUserForm({ email: "", full_name: "", role: "staff", phone: "" });
+      setUserForm({ email: "", full_name: "", role: "staff", phone: "", password: "" });
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: () => {
@@ -252,8 +274,20 @@ export default function Admin() {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const { error } = await supabase.auth.admin.deleteUser(userId);
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-delete-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ user_id: userId }),
+      });
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(text);
+      }
     },
     onSuccess: () => {
       toast.success("User deleted successfully");
@@ -266,6 +300,13 @@ export default function Admin() {
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
+    // Client-side password policy
+    const pw = userForm.password || "";
+    const strongEnough = pw.length >= 10 && /[A-Z]/.test(pw) && /[a-z]/.test(pw) && /\d/.test(pw);
+    if (!strongEnough) {
+      toast.error("Password must be 10+ chars and include upper, lower, and a digit");
+      return;
+    }
     createUserMutation.mutate(userForm);
   };
 
@@ -288,9 +329,23 @@ export default function Admin() {
   };
 
   const handleDeleteUser = (userId: string) => {
-    if (confirm("Are you sure you want to delete this user?")) {
-      deleteUserMutation.mutate(userId);
-    }
+    // Use toast confirmations instead of blocking browser alert
+    const id = `delete-${userId}`;
+    toast(
+      "Confirm deletion",
+      {
+        description: "This action cannot be undone.",
+        action: {
+          label: "Delete",
+          onClick: () => deleteUserMutation.mutate(userId),
+        },
+        cancel: {
+          label: "Cancel",
+          onClick: () => toast.dismiss(id),
+        },
+        id,
+      }
+    );
   };
 
   const exportData = async (tableName: 'farmers' | 'farmer_groups' | 'loans' | 'deliveries') => {
@@ -484,6 +539,20 @@ export default function Admin() {
                           />
                         </div>
                         
+                        {!editingUser && (
+                          <div className="space-y-2">
+                            <Label htmlFor="password">Temporary Password</Label>
+                            <Input
+                              id="password"
+                              type="password"
+                              value={userForm.password}
+                              onChange={(e) => setUserForm(prev => ({ ...prev, password: e.target.value }))}
+                              placeholder="At least 10 chars, upper, lower, digit"
+                              required
+                            />
+                          </div>
+                        )}
+
                         <div className="space-y-2">
                           <Label htmlFor="fullName">Full Name</Label>
                           <Input

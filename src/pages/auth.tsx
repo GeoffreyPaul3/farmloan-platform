@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/farm-logo.png"
@@ -29,8 +30,22 @@ export default function AuthPage() {
   });
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
 
-  // Redirect if already authenticated
-  if (user) {
+  // If authenticated, check approval status before redirecting
+  const { data: profile } = useQuery({
+    queryKey: ["auth-profile", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("approved, role, full_name")
+        .eq("user_id", user.id)
+        .single();
+      return data as { approved: boolean; role: 'admin' | 'staff'; full_name?: string } | null;
+    },
+    enabled: !!user?.id,
+  });
+
+  if (user && profile?.approved) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -66,36 +81,11 @@ export default function AuthPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
-    try {
-      const { error } = await signUp(
-        signUpData.email, 
-        signUpData.password, 
-        signUpData.fullName
-      );
-      
-      if (error) {
-        toast({
-          title: "Registration Failed",
-          description: error.message || "Unable to create account",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Account Created!",
-          description: "Please check your email to confirm your account. Your account will be reviewed by an administrator before you can access the system.",
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    toast({
+      title: "Registration Disabled",
+      description: "This is an internal system. Ask an administrator to provision your account.",
+      variant: "destructive",
+    });
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -176,9 +166,8 @@ export default function AuthPage() {
           
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Register</TabsTrigger>
                 <TabsTrigger value="forgot">Reset</TabsTrigger>
               </TabsList>
               
@@ -240,83 +229,7 @@ export default function AuthPage() {
                 </form>
               </TabsContent>
               
-              {/* Sign Up Tab */}
-              <TabsContent value="signup" className="space-y-4">
-                <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg mb-4">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                    <strong>Note:</strong> All new registrations are automatically assigned as Staff members and require administrator approval before access is granted.
-                  </p>
-                </div>
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name</Label>
-                    <Input
-                      id="fullName"
-                      type="text"
-                      placeholder="John Doe"
-                      value={signUpData.fullName}
-                      onChange={(e) => setSignUpData(prev => ({ ...prev, fullName: e.target.value }))}
-                      className="input-enterprise"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="signupEmail">Email Address</Label>
-                    <Input
-                      id="signupEmail"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={signUpData.email}
-                      onChange={(e) => setSignUpData(prev => ({ ...prev, email: e.target.value }))}
-                      className="input-enterprise"
-                      required
-                    />
-                  </div>
-                  
-
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="signupPassword">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="signupPassword"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Create a strong password"
-                        value={signUpData.password}
-                        onChange={(e) => setSignUpData(prev => ({ ...prev, password: e.target.value }))}
-                        className="input-enterprise pr-10"
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full"
-                    variant="enterprise"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating account...
-                      </>
-                    ) : (
-                      "Create Account"
-                    )}
-                  </Button>
-                </form>
-              </TabsContent>
+              {/* Sign Up removed for internal app security */}
 
               {/* Forgot Password Tab */}
               <TabsContent value="forgot" className="space-y-4">
